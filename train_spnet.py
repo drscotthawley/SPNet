@@ -157,7 +157,7 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             #print("              Y_pred =",Y_pred[ipem])
             #print("              Y_val =",Y_val[ipem])
             ring_miscounts = calc_miscounts(Yp, Yt, vars_per_pred=self.vars_per_pred)
-            print("        Num ring miscounts = ",ring_miscounts,' / ',total_nonzero,'.   = ',(total-ring_miscounts)*1.0/total_nonzero*100,' % class. accuracy',sep="")
+            print("        Num ring miscounts = ",ring_miscounts,' / ',total_nonzero,'.   = ',(total_nonzero-ring_miscounts)*1.0/total_nonzero*100,' % class. accuracy',sep="")
             print("                                                                            Again: my_val_loss = ",my_val_loss)
 
 
