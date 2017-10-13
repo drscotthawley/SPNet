@@ -133,8 +133,8 @@ def true_to_pred_grid(true_arr, pred_shape, img_filename=None):    # the essence
                                     # this takes our 'true' antinode info, and assigns it across the 'grid' of predictors, i.e. YOLO-style
     true_arr = np.array(true_arr)   # convert from list to array
 
-    xbinsize = int(orig_img_dims[0] / gridYi.shape[0])
-    ybinsize = int(orig_img_dims[1] / gridYi.shape[1])
+    xbinsize = int(orig_img_dims[0] / pred_shape[0])
+    ybinsize = int(orig_img_dims[1] / pred_shape[1])
 
 
     griddefaults = np.zeros(pred_shape,dtype=np.float32)
@@ -148,7 +148,7 @@ def true_to_pred_grid(true_arr, pred_shape, img_filename=None):    # the essence
         ind_x = int(true_arr[an,0] / xbinsize)
         ind_y = int(true_arr[an,1] / ybinsize)
         #print("            ind_x, ind_y = ",ind_x, ind_y,", assigned_counts[ind_x, ind_y] =",assigned_counts[ind_x, ind_y])
-        if not (assigned_counts[ind_x, ind_y] < gridYi.shape[2]):
+        if not (assigned_counts[ind_x, ind_y] < pred_shape[2]):
             print("true_to_pred_grid: Error: Have already added ",assigned_counts[ind_x, ind_y]," out of a maximum of ",gridYi.shape[2],
             "possible 'slots' to predictive-grid cell [",ind_x,",",ind_y,"].  Increase last dimstion of pred_shape.")
             print("     img_filename = ",img_filename)
@@ -157,7 +157,7 @@ def true_to_pred_grid(true_arr, pred_shape, img_filename=None):    # the essence
             print("     gridYi[",ind_x,",",ind_y,"] = ",gridYi[ind_x,ind_y])
             print("     xbinsize, ybinsize = ",xbinsize, ybinsize)
             print("")
-        assert( assigned_counts[ind_x, ind_y] < gridYi.shape[2] )
+        assert( assigned_counts[ind_x, ind_y] < pred_shape[2] )
 
         # train faster by improving initial guesses: normalize each entry relative to grid centers
         if (False):
