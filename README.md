@@ -11,3 +11,13 @@ Uses a [YOLO](https://pjreddie.com/darknet/yolo/)-style approach, but fits ellip
 Built in [Keras](https://keras.io/), running [MobileNet](https://arxiv.org/abs/1704.04861) for image classification.
 
 Author: Scott H. Hawley
+
+Minimal usage documentation:
+
+    ./gen_fake_espi
+Generates 50,000 fake images, placing them in directories Train, Val and Test.
+
+    ./train_fake_espi
+Actually does the training.  Has a few options, e.g. where files are/go, and how much of dataset to use.  Try --help.
+
+More later.
