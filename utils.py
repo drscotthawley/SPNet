@@ -182,7 +182,7 @@ def true_to_pred_grid(true_arr, pred_shape, img_filename=None):    # the essence
 
 
 # builds the Training or Test data set
-def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscale=False, pred_grid=[5,5,2], vars_per_pred=6):
+def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscale=False, pred_grid=[5,5,3], vars_per_pred=6):
     global means, ranges
 
     img_file_list = sorted(glob.glob(path+'steelpan*.bmp'))
