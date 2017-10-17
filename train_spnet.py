@@ -17,24 +17,28 @@ from models import *
 from utils import *
 
 
-
-def calc_miscounts(Yp, Yt, ind_start=2, vars_per_pred=6):  #index = 2 is where the ring count is stored.
+def calc_errors(Yp, Yt, ind_rings=2, vars_per_pred=6):  #index = 2 is where the ring count is stored.
                              # Yp & Yt have already been 'denormalized' at this point
-
     max_pred_antinodes = int(Yt.shape[1]/vars_per_pred)
 
+    diff = Yp - Yt
+    # pixel error in antinode centers
+    pix_err = np.sqrt(diff[:,0]**2 + diff[:,1]**2)
+    ipem = np.argmax(pix_err)               # index of pixel error maximum
+
+    # number of ring miscounts
     miscounts = 0
     total = 0
     for j in range(Yt.shape[0]):
         for an in range(max_pred_antinodes):
-
-            ind = ind_start + an * vars_per_pred
+            ind = ind_rings + an * vars_per_pred
             rings_t = int(round(Yt[j,ind]))
             if (True):      #(rings_t > 0):                  # do we count zero/non-zero #s of rings in predictions
                 total = total + 1
                 if (int(round(Yp[j,ind])) != rings_t): # compare integer ring counts
                     miscounts = miscounts +1
-    return miscounts
+
+    return miscounts, pix_err, ipem
 
 
 # Custom callbacks
@@ -99,13 +103,11 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             val_loss_hist.append(my_val_loss)
             print("  my_val_loss = ",my_val_loss)
 
-
+            # calc some errors.  first transform back into regular 'world' values via de-normalization
             Yt = denorm_Y(Y_val)     # t is for true
             Yp = denorm_Y(Y_pred)
-            diff = Yp - Yt
-            pix_err = np.sqrt(diff[:,0]**2 + diff[:,1]**2)
-            ipem = np.argmax(pix_err)               # index of pixel error maximum
 
+            ring_miscounts, pix_err, ipem = calc_errors(Yp, Yt, vars_per_pred=self.vars_per_pred)
 
             # Plot Progress:  Centroids & History
             orig_img_dims=[512,384]
@@ -113,10 +115,17 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             self.fig.clf()
 
             # Plot centroids
-            num_plot = 80                           # number of centroids to make scatterplot of
+            num_plot = 50                           # number of images to plot centroids for
             ax = plt.subplot(121, autoscale_on=False, aspect=orig_img_dims[0]*1.0/orig_img_dims[1], xlim=[0,orig_img_dims[0]], ylim=[0,orig_img_dims[1]])
-            ax.plot(Yt[0:num_plot,0],Yt[0:num_plot,1],'ro', label="Expected")
-            ax.plot(Yp[0:num_plot,0],Yp[0:num_plot,1],'go', label="Predicted")
+            for k in range( int(Yt.shape[1]/self.vars_per_pred)):
+                ind = k * self.vars_per_pred
+                if (0==k):
+                    ax.plot(Yt[0:num_plot,0],Yt[0:num_plot,1],'ro', label="Expected")
+                    ax.plot(Yp[0:num_plot,0],Yp[0:num_plot,1],'go', label="Predicted")
+                else:
+                    ax.plot(Yt[0:num_plot,ind],Yt[0:num_plot,ind+1],'ro')
+                    ax.plot(Yp[0:num_plot,ind],Yp[0:num_plot,ind+1],'go')
+
             ax.legend(loc='upper right', fancybox=True, framealpha=0.8)
 
             #  Plot history: Loss vs. Time graph
@@ -146,19 +155,18 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
                 self.writer.add_summary(summary, step)
                 #writer.close()
 
-            # Print additional diagnostics
             print("     Drawing sample ellipses for the above...")
             show_pred_ellipses(Yt, Yp, val_file_list, num_draw=50, log_dir=self.log_dir, ind_extra=ipem)
 
-            total_nonzero = Yt.shape[0]* 6   #TODO: fix the '6';  total non-zero antinode predictions
+            # Print additional diagnostics
+            total_nonzero = Yt.shape[0]* 6   #TODO: fix the '6'=antinodes per image;  total non-zero antinode predictions
             print("    In whole val dataset:")
             print('        Mean pixel error =',np.mean(pix_err))
             print("        Max pixel error =",pix_err[ipem]," (index =",ipem,", file=",val_file_list[ipem],").")
             #print("              Y_pred =",Y_pred[ipem])
             #print("              Y_val =",Y_val[ipem])
-            ring_miscounts = calc_miscounts(Yp, Yt, vars_per_pred=self.vars_per_pred)
             print("        Num ring miscounts = ",ring_miscounts,' / ',total_nonzero,'.   = ',(total_nonzero-ring_miscounts)*1.0/total_nonzero*100,' % class. accuracy',sep="")
-            print("                                                                            Again: my_val_loss = ",my_val_loss)
+            print("                                                           Again: my_val_loss:",my_val_loss)
 
 
 
@@ -166,11 +174,11 @@ def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0):
     np.random.seed(1)
 
     print("Getting data..., fraction = ",fraction)
-    X_train, Y_train, img_dims, train_file_list, pred_shape = build_dataset(path=datapath, load_frac=fraction)
+    X_train, Y_train, img_dims, train_file_list, pred_shape = build_dataset(path=datapath, load_frac=fraction, set_means_ranges=True)
 #    testpath="Test/"
 #    X_test, Y_test, img_dims, test_file_list  = build_dataset(path=testpath, load_frac=fraction)
     valpath="Val/"
-    X_val, Y_val, img_dims, val_file_list, pred_shape  = build_dataset(path=valpath, load_frac=fraction)
+    X_val, Y_val, img_dims, val_file_list, pred_shape  = build_dataset(path=valpath, load_frac=fraction, set_means_ranges=False)
 
     print("Instantiating model...")
     model = setup_model(X_train, Y_train, no_cp_fatal=False, weights_file=weights_file)
@@ -189,13 +197,12 @@ def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0):
     earlystopping = EarlyStopping(patience=patience)
     myprogress = MyProgressCallback(X_val=X_val, Y_val=Y_val, val_file_list=val_file_list, log_dir=log_dir, pred_shape=pred_shape)
 
-    frozen_epochs = 20
+    frozen_epochs = 20;  #MobileNet is robust enough that I don't need to pre-train my final layers first
     later_epochs = 400
 
     # early training with partially-frozen pre-trained model
     model.fit(X_train, Y_train, batch_size=batch_size, epochs=frozen_epochs, shuffle=True,
               verbose=1, validation_data=(X_val, Y_val), callbacks=[checkpointer,earlystopping,tensorboard,myprogress])
-
     model = unfreeze_model(model, X_train, Y_train)
 
     # main training block

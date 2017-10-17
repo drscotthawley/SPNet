@@ -54,7 +54,7 @@ def instantiate_model(X, Y, freeze_fac=1.0):
 
 
 def setup_model(X, Y, nb_layers=4, try_checkpoint=True,
-    no_cp_fatal=False, weights_file='weights.hdf5', freeze_fac=0.75):
+    no_cp_fatal=False, weights_file='weights.hdf5', freeze_fac=0.75, opt='adam'):
 
     model = None
     from_scratch = True
@@ -65,7 +65,7 @@ def setup_model(X, Y, nb_layers=4, try_checkpoint=True,
             print ('Weights file detected. Loading from ',weights_file)
             with CustomObjectScope({'relu6': keras.applications.mobilenet.relu6,'DepthwiseConv2D': keras.applications.mobilenet.DepthwiseConv2D}):
                 model = load_model(weights_file, custom_objects={"tf": tf})
-                model = unfreeze_model(model, X, Y)
+                #model = make_parallel(model, 2)
 
             from_scratch = False
         else:
@@ -80,8 +80,8 @@ def setup_model(X, Y, nb_layers=4, try_checkpoint=True,
         model = instantiate_model(X, Y, freeze_fac=freeze_fac) # start by freezing
         opt = 'adam' # Adam(lr=0.001)   # fchollet likes rmsprop, Suki Lau shows it outperforming others
 
-        #model = make_parallel(model, 2)    # easier to "unfreeze" later if we leave it in serial
-        model.compile(loss='mse', optimizer=opt)
+    model = make_parallel(model, 2)    # easier to "unfreeze" later if we leave it in serial
+    model.compile(loss='mse', optimizer=opt)
 
     model.summary()
 

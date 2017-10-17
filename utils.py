@@ -107,39 +107,55 @@ def my_loss(Ypred, Ytrue, vars_per_pred=6):  # this is MSE but the angle is depr
 
 #img_dims=[224,224]
 orig_img_dims=[512,384]
-means1 =  [ orig_img_dims[0]/2.0,  orig_img_dims[1]/2.0,    5.0,  orig_img_dims[0]/4.0,    orig_img_dims[1]/4,    90.0]
-ranges1 = [ orig_img_dims[0],      orig_img_dims[1],       10.0,  orig_img_dims[0]/2.0,  orig_img_dims[1]/2.0,   180.0]
+#means1 =  [ orig_img_dims[0]/2.0,  orig_img_dims[1]/2.0,    5.0,  orig_img_dims[0]/4.0,    orig_img_dims[1]/4,    90.0]
+#ranges1 = [ orig_img_dims[0],      orig_img_dims[1],       10.0,  orig_img_dims[0]/2.0,  orig_img_dims[1]/2.0,   180.0]
 
-default0 =  [ means1[0], means1[1],   0.0,  means1[3], means1[4], means1[5]] # no-op for zero rings
+#default0 =  [ means1[0], means1[1],   0.0,  means1[3], means1[4], means1[5]] # no-op for zero rings
 means = []
 ranges = []
-
-
-
-def norm_Y(Y):  # not using this yet, but might be handy
+def norm_Y(Y, set_means_ranges=False):  # not using this yet, but might be handy
     global means, ranges
-#    if (means is None):
-#        means = np.mean(Y,axis=0)
-#    if (ranges is None):
-#        ranges = np.var(Y,axis=0)    # variance
+    if (False):  # this doesn't work. TODO: fix it!
+        means = np.mean(Y,axis=0)
+        ranges = np.var(Y,axis=0)    # variance
+    print("means = ",means)
+    print("ranges = ",ranges)
     return (Y-means)/ranges #,  means, ranges
 
 def denorm_Y(normY):
     global means, ranges
     return normY*ranges + means
 
+
 # TODO: remove item from list once assigned
 def true_to_pred_grid(true_arr, pred_shape, img_filename=None):    # the essence of the YOLO-style approach
                                     # this takes our 'true' antinode info, and assigns it across the 'grid' of predictors, i.e. YOLO-style
+                                    # true_arr is a list of antinode data which has been read from a text file
+                                    # pred_shape has dimensions [nx, nx, preds_per_cell, vars_per_pred]
+    global means, ranges
+
     true_arr = np.array(true_arr)   # convert from list to array
 
     xbinsize = int(orig_img_dims[0] / pred_shape[0])
     ybinsize = int(orig_img_dims[1] / pred_shape[1])
 
-
+    # also, set up the means & ranges for normalization, according to the grid of predictors
+    gridmeans = np.zeros(pred_shape,dtype=np.float32)
+    gridranges = np.zeros(pred_shape,dtype=np.float32)
     griddefaults = np.zeros(pred_shape,dtype=np.float32)
-    griddefaults[:,:,:] = default0
+    for i in range(pred_shape[0]):
+        for j in range(pred_shape[1]):
+            grid_cx = i*xbinsize + xbinsize/2
+            grid_cy = j*ybinsize + ybinsize/2
+            gridmeans[i,j] =    [grid_cx,    grid_cy,    5.0,  xbinsize/2,    ybinsize/2,    90.0]
+            gridranges[i,j] =   [xbinsize,  ybinsize,   10.0,    xbinsize,      ybinsize,   180.0]
+            griddefaults[i,j] = [grid_cx,    grid_cy,    0.0,  xbinsize/2,    ybinsize/2,    90.0]
+
     gridYi = np.copy(griddefaults)              # initialize a single grid-Y output with default values
+
+    means = gridmeans.flatten()                 # assign global means & ranges for later
+    ranges = gridranges.flatten()
+
 
     #print("divvy_up_true: true_arr = ",true_arr)
     assigned_counts = np.zeros(gridYi.shape[0:2],dtype=np.int)   # count up how many times a given array has been assigned
@@ -159,13 +175,6 @@ def true_to_pred_grid(true_arr, pred_shape, img_filename=None):    # the essence
             print("")
         assert( assigned_counts[ind_x, ind_y] < pred_shape[2] )
 
-        # train faster by improving initial guesses: normalize each entry relative to grid centers
-        if (False):
-            grid_cx = ind_x + xbinsize/2
-            grid_cy = ind_y + ybinsize/2
-            true_arr[an,0] -= grid_cx
-            true_arr[an,1] -= grid_cy
-
         gridYi[ind_x,ind_y, assigned_counts[ind_x, ind_y]] = true_arr[an]
         assigned_counts[ind_x, ind_y] = assigned_counts[ind_x, ind_y] + 1
     return gridYi
@@ -173,7 +182,7 @@ def true_to_pred_grid(true_arr, pred_shape, img_filename=None):    # the essence
 
 
 # builds the Training or Test data set
-def build_dataset(path="Train/", load_frac=1.0, grayscale=False, pred_grid=[3,3,4], vars_per_pred=6):
+def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscale=False, pred_grid=[5,5,2], vars_per_pred=6):
     global means, ranges
 
     img_file_list = sorted(glob.glob(path+'steelpan*.bmp'))
@@ -198,14 +207,6 @@ def build_dataset(path="Train/", load_frac=1.0, grayscale=False, pred_grid=[3,3,
     print("       img_dims = ",img_dims)
 
     pred_shape = [pred_grid[0],pred_grid[1],pred_grid[2],vars_per_pred]  # shape of output predictions = grid_shape * vars per_grid
-    gridmeans = np.zeros(pred_shape,dtype=np.float32)
-    gridranges = np.zeros(pred_shape,dtype=np.float32)
-
-    gridmeans[:,:,:] = means1
-    gridranges[:,:,:] = ranges1
-
-    means = gridmeans.flatten()
-    ranges = gridranges.flatten()
 
     if (grayscale):
         X = np.zeros((total_load, img_dims[0], img_dims[1],1),dtype=np.float32)
@@ -246,24 +247,12 @@ def build_dataset(path="Train/", load_frac=1.0, grayscale=False, pred_grid=[3,3,
         # Keras wants our output Y to be flat
         Y[i,:] = gridYi.flatten()
 
-        Y[i,:] = norm_Y(Y[i,:])                     # normalize
-
         if (i==0):
             print("       Y[0] = ",Y[0])
 
+    Y = norm_Y(Y, set_means_ranges=set_means_ranges)  # after all parts of Y are assigned, normalize
+
     return X, Y, img_dims, img_file_list, pred_shape              # pred_shape tells how to un-flatten Y
-
-
-# just moved this out to make main code more readable
-def val_patience_exceeded(epoch,val_loss_hist,val_patience,new_data_epoch):
-    vlh = val_loss_hist
-    last_min_loc = max( (loc for loc, val in enumerate(vlh) if val == min(vlh)),default=0)
-    return ((len(vlh) > val_patience)
-    and (vlh[-1][0] > min(vlh[new_data_epoch:-1], default=999.0))
-    and (epoch - new_data_epoch > val_patience)
-    and (epoch - last_min_loc > val_patience))
-
-
 
 
 def parse_txt_file(txt_filename, vars_per_pred=6):
@@ -283,39 +272,8 @@ def parse_txt_file(txt_filename, vars_per_pred=6):
 
         arrs.append(vals[0:vars_per_pred])
 
-    arrs = sorted(arrs)
+    arrs = sorted(arrs,key=itemgetter(1,0))     # sort by y first, then by x
     #print("parse_txt_file: arrs = ",arrs)
     #arrs = np.array(arrs,dtype=np.float32).flatten()
 
     return arrs
-
-
-
-
-
-# ========= UNUSED.  LEGACY
-
-#----- We encode the info about the antindoes into a series of binary-represented
-#      integers
-def int2binarr(i, digits=16):       # convert int to array of binary digits
-    s = '{0:b}'.format(i).zfill(digits)
-    return np.array(list(s),dtype=np.float32)
-
-def binarr2int(b_arr):              # convert binary-array to int
-    s = ''.join(''.join(str(int(cell)) for cell in b_arr))
-    return int(s,2)
-
-
-
-
-
-# this takes an array of multiple 'bytes' and reinterprets them as ints
-def bytearr2ints(byte_arr,bytes_per_var=9):
-    vals = []
-    numvals = int(np.round(len(byte_arr)/bytes_per_var))
-    for j in range(numvals):
-        ind = j*bytes_per_var
-        subset = byte_arr[ind : ind+bytes_per_var]
-        val = binarr2int(subset)
-        vals.append(val)
-    return vals
