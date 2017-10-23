@@ -54,7 +54,7 @@ def instantiate_model(X, Y, freeze_fac=1.0):
 
 
 def setup_model(X, Y, nb_layers=4, try_checkpoint=True,
-    no_cp_fatal=False, weights_file='weights.hdf5', freeze_fac=0.75, opt='adam'):
+    no_cp_fatal=False, weights_file='weights.hdf5', freeze_fac=0.75, opt='adam', parallel=True):
 
     model = None
     from_scratch = True
@@ -64,7 +64,12 @@ def setup_model(X, Y, nb_layers=4, try_checkpoint=True,
         if ( isfile(weights_file) ):
             print ('Weights file detected. Loading from ',weights_file)
             with CustomObjectScope({'relu6': keras.applications.mobilenet.relu6,'DepthwiseConv2D': keras.applications.mobilenet.DepthwiseConv2D}):
-                model = load_model(weights_file, custom_objects={"tf": tf})
+                if parallel:   # if we're loading from something that was already a multi-gpu model
+                    multi_model = load_model(weights_file, custom_objects={"tf": tf})
+                    model = multi_model.layers[-2]   # strip parallel part, to be added back in later
+                else:
+                    model = load_model(weights_file, custom_objects={"tf": tf})
+
                 #model = make_parallel(model, 2)
 
             from_scratch = False
@@ -78,9 +83,10 @@ def setup_model(X, Y, nb_layers=4, try_checkpoint=True,
         #model = MLP(X, num_outputs=Y.shape[1], nb_layers=nb_layers)
         #model = MyCNN_Keras2(X, num_outputs=Y.shape[1], nb_layers=nb_layers)
         model = instantiate_model(X, Y, freeze_fac=freeze_fac) # start by freezing
-        opt = 'adam' # Adam(lr=0.001)   # fchollet likes rmsprop, Suki Lau shows it outperforming others
 
-    model = make_parallel(model, 2)    # easier to "unfreeze" later if we leave it in serial
+    if parallel:
+        model = make_parallel(model, 2)    # easier to "unfreeze" later if we leave it in serial
+
     model.compile(loss='mse', optimizer=opt)
 
     model.summary()
@@ -88,12 +94,18 @@ def setup_model(X, Y, nb_layers=4, try_checkpoint=True,
     return model
 
 
-def unfreeze_model(model, X, Y, freeze_fac=0.0):
+def unfreeze_model(model, X, Y, freeze_fac=0.0, parallel=True):
     print("Unfreezing Model: make a new identical model, then copy the layer weights.")
     new_model = instantiate_model(X, Y, freeze_fac=freeze_fac)  # identical spec as original model, just not setting 'trainable=False'
-    new_model.set_weights( model.get_weights() )     # copy layer weights
 
-    new_model = make_parallel(new_model, 2)          # kick it in to high gear
+    if parallel:
+        single_model = model.layers[-2]         # strip off parallel part
+        new_model.set_weights( single_model.get_weights() )     # copy layer weights
+    else:
+        new_model.set_weights( model.get_weights() )     # copy layer weights
+
+    if parallel:
+        new_model = make_parallel(new_model, 2)          # kick it in to high gear
 
     opt = Adam()#lr=0.0001)
 
