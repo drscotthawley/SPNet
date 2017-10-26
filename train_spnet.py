@@ -166,7 +166,7 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             #print("              Y_pred =",Y_pred[ipem])
             #print("              Y_val =",Y_val[ipem])
             print("        Num ring miscounts = ",ring_miscounts,' / ',total_nonzero,'.   = ',(total_nonzero-ring_miscounts)*1.0/total_nonzero*100,' % class. accuracy',sep="")
-            print("                                                           Again: my_val_loss:",my_val_loss)
+            print("                                                         Again: my_val_loss:",my_val_loss)
 
 
 
@@ -174,17 +174,17 @@ def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0):
     np.random.seed(1)
 
     print("Getting data..., fraction = ",fraction)
-    X_train, Y_train, img_dims, train_file_list, pred_shape = build_dataset(path=datapath, load_frac=fraction, set_means_ranges=True)
+    X_train, Y_train, img_dims, train_file_list, pred_shape = build_dataset(path=datapath, load_frac=fraction, set_means_ranges=True, force_dim=None)
 #    testpath="Test/"
 #    X_test, Y_test, img_dims, test_file_list  = build_dataset(path=testpath, load_frac=fraction)
     valpath="Val/"
-    X_val, Y_val, img_dims, val_file_list, pred_shape  = build_dataset(path=valpath, load_frac=fraction, set_means_ranges=False)
+    X_val, Y_val, img_dims, val_file_list, pred_shape  = build_dataset(path=valpath, load_frac=fraction, set_means_ranges=False, force_dim=None)
 
     print("Instantiating model...")
     model = setup_model(X_train, Y_train, no_cp_fatal=False, weights_file=weights_file)
 
     # Params for training: batch size, ....
-    batch_size = 50     # greater size runs faster but may yield Out Of Memory errors
+    batch_size = 20     # greater size runs faster but may yield Out Of Memory errors
 
     # Set up callbacks
     checkpointer = ModelCheckpoint(filepath=weights_file, save_best_only=True)
@@ -197,7 +197,7 @@ def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0):
     earlystopping = EarlyStopping(patience=patience)
     myprogress = MyProgressCallback(X_val=X_val, Y_val=Y_val, val_file_list=val_file_list, log_dir=log_dir, pred_shape=pred_shape)
 
-    frozen_epochs = 20;  #MobileNet is robust enough that I don't need to pre-train my final layers first
+    frozen_epochs = 0;  #MobileNet is robust enough that I don't need to pre-train my final layers first
     later_epochs = 400
 
     # early training with partially-frozen pre-trained model

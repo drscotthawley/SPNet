@@ -25,7 +25,7 @@ def instantiate_model(X, Y, freeze_fac=1.0):
     # Pick a pre-trained model, but leave the "top" off.
 
     input_tensor = Input(shape=X[0].shape)
-    weights = 'imagenet'    # None or 'imagenet'    If you want to use imagenet, X[0].shape[2] must = 3
+    weights = None#'imagenet'    # None or 'imagenet'    If you want to use imagenet, X[0].shape[2] must = 3
     #base_model = VGG16(weights=weights, include_top=False, input_tensor=input_tensor)              # same for all inputs
     #--nope base_model = Xception(weights=weights, include_top=False, input_tensor=input_tensor)   # yield same #s for all inputs
     #base_model = InceptionV3(weights=weights, include_top=False, input_tensor=input_tensor)       # Works well, fast
@@ -52,6 +52,14 @@ def instantiate_model(X, Y, freeze_fac=1.0):
 
     return model
 
+def yolo_loss(Ypred,Ytrue):
+    # We're going to use MSE on the centroid locations and for the ellipse width & height
+    # we're going to use cross-entropy on the "does an object exist" and the "count the number of rings"
+    #     (Note equivalently, "does object exist" is isomorphic to  "probability of zero rings")
+    #        (Note: technically, counting 0 for number of rings SHOULD work for 'does an object exist', but we're copying YOLO on this)
+    # and we're going to use MSE on the angle of the ellipse BUT we'll weight it by the difference between ellipse's semimajor & minor axis sizes
+    #     because we don't care what the orientation angle is for a circle.
+    return
 
 def setup_model(X, Y, nb_layers=4, try_checkpoint=True,
     no_cp_fatal=False, weights_file='weights.hdf5', freeze_fac=0.75, opt='adam', parallel=True):

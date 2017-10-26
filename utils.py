@@ -105,7 +105,6 @@ def my_loss(Ypred, Ytrue, vars_per_pred=6):  # this is MSE but the angle is depr
     return sqerr.mean()
 
 
-#img_dims=[224,224]
 orig_img_dims=[512,384]
 #means1 =  [ orig_img_dims[0]/2.0,  orig_img_dims[1]/2.0,    5.0,  orig_img_dims[0]/4.0,    orig_img_dims[1]/4,    90.0]
 #ranges1 = [ orig_img_dims[0],      orig_img_dims[1],       10.0,  orig_img_dims[0]/2.0,  orig_img_dims[1]/2.0,   180.0]
@@ -132,6 +131,8 @@ def true_to_pred_grid(true_arr, pred_shape, img_filename=None):    # the essence
                                     # this takes our 'true' antinode info, and assigns it across the 'grid' of predictors, i.e. YOLO-style
                                     # true_arr is a list of antinode data which has been read from a text file
                                     # pred_shape has dimensions [nx, nx, preds_per_cell, vars_per_pred]
+    # TODO: and each value is organized (according to loss type) as
+    #   cx, cy, prob_exist, prob_1_ring, prob_2_rings,...prob_11_rings,
     global means, ranges
 
     true_arr = np.array(true_arr)   # convert from list to array
@@ -182,14 +183,12 @@ def true_to_pred_grid(true_arr, pred_shape, img_filename=None):    # the essence
 
 
 # builds the Training or Test data set
-def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscale=False, pred_grid=[5,5,3], vars_per_pred=6):
+def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscale=False, pred_grid=[5,5,3], vars_per_pred=6, force_dim=None):
     global means, ranges
 
     img_file_list = sorted(glob.glob(path+'steelpan*.bmp'))
     txt_file_list = sorted(glob.glob(path+'steelpan*.txt'))
     assert( len(img_file_list) == len(txt_file_list))
-
-    force_dim = 224
 
     total_files = len(img_file_list)
     total_load = int(total_files * load_frac)
@@ -199,9 +198,12 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
     img_filename = img_file_list[i]
     print("       first file = ",img_filename)
     img = load_img(img_filename)  # this is a PIL image
-    if (force_dim is not None):
+
+
+    if (force_dim is not None):                 # resize if needed
         print("        Resizing to ",force_dim,"x",force_dim)
         img = img.resize((force_dim,force_dim), PIL.Image.ANTIALIAS)
+
     img = img_to_array(img)
     img_dims = img.shape
     print("       img_dims = ",img_dims)
@@ -225,7 +227,7 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
         #    print(" i = ",i," img_filename = ",img_filename,", txt_filename = ",txt_filename)
 
         img = load_img(img_filename)
-        if (force_dim is not None):
+        if (force_dim is not None):         # resize image if needed
             img = img.resize((force_dim,force_dim), PIL.Image.ANTIALIAS)
         img = img_to_array(img)
 
@@ -272,7 +274,7 @@ def parse_txt_file(txt_filename, vars_per_pred=6):
 
         arrs.append(vals[0:vars_per_pred])
 
-    arrs = sorted(arrs,key=itemgetter(1,0))     # sort by y first, then by x
+    arrs = sorted(arrs,key=itemgetter(0,1))     # sort by y first, then by x
     #print("parse_txt_file: arrs = ",arrs)
     #arrs = np.array(arrs,dtype=np.float32).flatten()
 
