@@ -130,45 +130,6 @@ def custom_loss_old(y_true, y_pred):
     return K.mean(loss)
 
 
-lambda_center = 1.0
-lambda_size = 1.0
-lambda_angle = 100.0  # compensate for (a-b)^2 being a small number on the -.5,.5 domain
-lambda_noobj = 1.0
-lambda_class = 50.0  # compensate for normalization, place on equal weight with other quantities
-
-def custom_loss(y_true, y_pred):  # it's just MSE but the angle term is weighted by (a-b)^2
-    sqerr = K.square(y_true - y_pred)   # loss is 'built on' squared error
-    loss = lambda_center * ( K.sum(sqerr[:,ind_cx:-1:vars_per_pred],     axis=-1) + K.sum(sqerr[:,ind_cy:-1:vars_per_pred], axis=-1))
-    loss += lambda_size  * ( K.sum(sqerr[:,ind_semi_a:-1:vars_per_pred], axis=-1) + K.sum(sqerr[:,ind_semi_b:-1:vars_per_pred], axis=-1))
-    abdiff = y_true[:, ind_semi_a:-1:vars_per_pred] - y_true[:, ind_semi_b:-1:vars_per_pred]
-    loss += lambda_angle * K.sum(sqerr[:, ind_angle:-1:vars_per_pred] * K.square(abdiff) , axis=-1)
-    loss += lambda_noobj * K.sum(sqerr[:, ind_noobj:-1:vars_per_pred], axis=-1)
-    loss += lambda_class * K.sum(sqerr[:, ind_rings:-1:vars_per_pred], axis=-1)
-
-    # take average
-    ncols = K.int_shape(y_pred)[-1]
-    loss /= ncols
-    return K.mean(loss)
-
-
-def my_loss(y_true, y_pred):  # it's just MSE but the angle term is weighted by (a-b)^2
-    sqerr = (y_true - y_pred)**2   # loss is 'built on' squared error
-    center_loss = lambda_center * ( K.sum(sqerr[:,ind_cx:-1:vars_per_pred],     axis=-1) + K.sum(sqerr[:,ind_cy:-1:vars_per_pred], axis=-1))
-    size_loss   = lambda_size  * ( K.sum(sqerr[:,ind_semi_a:-1:vars_per_pred], axis=-1) + K.sum(sqerr[:,ind_semi_b:-1:vars_per_pred], axis=-1))
-    abdiff = y_true[:, ind_semi_a:-1:vars_per_pred] - y_true[:, ind_semi_b:-1:vars_per_pred]
-    angle_loss  = lambda_angle * K.sum(sqerr[:, ind_angle:-1:vars_per_pred] * K.square(abdiff) , axis=-1)
-    noobj_loss  = lambda_noobj * K.sum(sqerr[:, ind_noobj:-1:vars_per_pred], axis=-1)
-    class_loss  = lambda_class * K.sum(sqerr[:, ind_rings:-1:vars_per_pred], axis=-1)
-
-    losses = np.array([center_loss, size_loss, angle_loss, noobj_loss, class_loss])
-    big_ind = np.argmax(losses)
-    print("     my_loss: losses = ",losses,", ind of biggest = ",big_ind)
-    loss = np.sum(losses)
-    # take average
-    ncols = y_pred.shape[-1]
-    loss /= ncols
-    return K.mean(loss)
-
 
 def my_loss_old(y_true, y_pred): # The following is only suitable for numpy arrays, not for Keras/TF/Theano tensors
     # This is MSE but the angle is term is specially weighted:
@@ -311,7 +272,7 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
         txt_filename = txt_file_list[i]
         #if (i == 10739):
         if (0 == i % 1000):
-            print(" Reading in i = ",i," / ",total_load,": img_filename = ",img_filename,", txt_filename = ",txt_filename)
+            print(" Reading in i =",i,"/",total_load,": img_filename =",img_filename,", txt_filename =",txt_filename)
 
         img = load_img(img_filename)
         if (force_dim is not None):         # resize image if needed
@@ -336,12 +297,62 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
         # Keras wants our output Y to be flat
         Y[i,:] = gridYi.flatten()
 
-        if (i==0):
-            print("       Y[0] = ",Y[0])
+        #if (i==0):
+        #    print("       Y[0] = ",Y[0])
 
     Y = norm_Y(Y, set_means_ranges=set_means_ranges)  # after all parts of Y are assigned, normalize
 
     return X, Y, img_dims, img_file_list, pred_shape              # pred_shape tells how to un-flatten Y
+
+lambda_center = 1.0
+lambda_size = 1.0
+lambda_angle = 30.0
+lambda_noobj = 0.3
+lambda_class = 10.0
+
+def custom_loss(y_true, y_pred):  # it's just MSE but the angle term is weighted by (a-b)^2
+    print("custom_loss function engaged!")
+    sqerr = K.square(y_true - y_pred)   # loss is 'built on' squared error
+    pobj = 1 - y_true[:, ind_noobj::vars_per_pred]   # probability of object", i.e. existence.  if no object, then we don't care about the rest of the variables
+
+    loss = lambda_center * ( K.sum(pobj* sqerr[:,ind_cx::vars_per_pred],     axis=-1) + K.sum(pobj* sqerr[:,ind_cy:-1:vars_per_pred], axis=-1))
+    loss += lambda_size  * ( K.sum(pobj* sqerr[:,ind_semi_a::vars_per_pred], axis=-1) + K.sum(pobj* sqerr[:,ind_semi_b:-1:vars_per_pred], axis=-1))
+    abdiff = y_true[:, ind_semi_a::vars_per_pred] - y_true[:, ind_semi_b:-1:vars_per_pred]
+    loss += lambda_angle * K.sum(pobj* sqerr[:, ind_angle::vars_per_pred] * K.square(abdiff) , axis=-1)
+    loss += lambda_noobj * K.sum(sqerr[:, ind_noobj::vars_per_pred], axis=-1)
+    loss += lambda_class * K.sum( pobj * sqerr[:, ind_rings::vars_per_pred], axis=-1)
+
+    # take average
+    ncols = K.int_shape(y_pred)[-1]
+    loss /= ncols
+    return K.mean(loss)
+
+
+def my_loss(y_true, y_pred):  # same as custom_loss but via numpy for easier diagnostics; inputs should be numpy arrays, not Tensors
+    y_shape = y_pred.shape
+    print("    my_loss: y_shape = ",y_shape)
+    sqerr = (y_true - y_pred)**2   # loss is 'built on' squared error
+    pobj = 1 - y_true[:, ind_noobj::vars_per_pred]   # probability of object", i.e. existence.  if no object, then we don't care about the rest of the variables
+
+    center_loss = lambda_center * (np.sum(pobj* sqerr[:,ind_cx::vars_per_pred],     axis=-1) + np.sum(pobj* sqerr[:,ind_cy::vars_per_pred], axis=-1))
+    size_loss   = lambda_size  * ( np.sum(pobj* sqerr[:,ind_semi_a::vars_per_pred], axis=-1) + np.sum(pobj* sqerr[:,ind_semi_b::vars_per_pred], axis=-1))
+    abdiff = y_true[:, ind_semi_a::vars_per_pred] - y_true[:, ind_semi_b::vars_per_pred]
+    angle_loss  = lambda_angle * np.sum(pobj * sqerr[:, ind_angle::vars_per_pred] * (abdiff**2) , axis=-1)
+    noobj_loss  = lambda_noobj * np.sum(sqerr[:, ind_noobj::vars_per_pred], axis=-1)
+    class_loss  = lambda_class * np.sum(pobj * sqerr[:, ind_rings::vars_per_pred], axis=-1)
+
+    losses = np.array([center_loss, size_loss, angle_loss, noobj_loss, class_loss])
+    losses = np.mean(losses,axis=-1)
+    big_ind = np.argmax(losses)
+
+    print("    my_loss: by class: [   center,        size,          angle,           noobj,          class]")
+    print("              losses =",losses,", ind of biggest =",big_ind)
+    loss = np.sum(losses)
+    # take average
+    ncols = y_pred.shape[-1]
+    loss /= ncols
+    return loss
+
 
 
 def parse_txt_file(txt_filename):
@@ -356,13 +367,13 @@ def parse_txt_file(txt_filename):
         line = line.translate({ord(c): None for c in '[] '})     # strip unwanted chars in unicode line
         string_vars = line.split(sep=',')
         vals = [float(numeric_string) for numeric_string in string_vars]
-        subarr = vals[0:vars_per_pred]     # the -1 is because 'existence' is implied, so the file doesn't include noobj flag
+        subarr = vals[0:vars_per_pred]  # note vars_per_pred includes a slot for no-object, but numpy slicing convention means subarr will be vars_per_pred-1 elements long
 
         # Input format (from file) is [cx, cy, num_rings, a, b, angle]
         #    But we'll change that to [cx, cy, a, b, angle, 0 (noobj=0, i.e. existence), num_rings] for ease of transition to classification
         tmp_arr = subarr[:]  # clone the list
         tmp_arr[2:5] = subarr[3:6]  # shift last three vars to the left
-        tmp_arr[5] = 0  # noobj = 0, i.e. object exists
+        tmp_arr[ind_noobj] = 0  # noobj = 0, i.e. object exists
         tmp_arr = tmp_arr + [subarr[2]] # move num_rings to end
 
         arrs.append(tmp_arr)

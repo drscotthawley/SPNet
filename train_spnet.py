@@ -27,17 +27,21 @@ def calc_errors(Yp, Yt):  #index = 2 is where the ring count is stored.
 
     # number of ring miscounts
     miscounts = 0
-    total = 0
+    total_obj = 0                           # total is the number of true objects
     for j in range(Yt.shape[0]):
         for an in range(max_pred_antinodes):
             ind = ind_rings + an * vars_per_pred
             rings_t = int(round(Yt[j,ind]))
-            if (True):      #(rings_t > 0):                  # do we count zero/non-zero #s of rings in predictions
-                total = total + 1
+            i_noobj = ind_noobj + an * vars_per_pred
+            if (0 == int(round(Yt[j,i_noobj])) ):   # Is there supposed to be an object there? If so, count the rings
+                total_obj += 1
                 if (int(round(Yp[j,ind])) != rings_t): # compare integer ring counts
-                    miscounts = miscounts +1
+                    miscounts += 1
+            elif (int(round(Yt[j,i_noobj])) != int(round(Yp[j,i_noobj]))):  # consider false background as a mistake
+                miscounts += 1
 
-    return miscounts, pix_err, ipem
+
+    return miscounts, total_obj, pix_err, ipem
 
 
 # Custom callbacks
@@ -106,9 +110,8 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             Yp = denorm_Y(Y_pred)
 
             # A few metrics
-            ring_miscounts, pix_err, ipem = calc_errors(Yp, Yt)
-            total_nonzero = Yt.shape[0]* 6   #TODO: fix the '6'=antinodes per image;  total non-zero antinode predictions
-            class_acc = (total_nonzero-ring_miscounts)*1.0/total_nonzero*100
+            ring_miscounts, total_obj, pix_err, ipem = calc_errors(Yp, Yt)
+            class_acc = (total_obj-ring_miscounts)*1.0/total_obj*100
 
             # Plot Progress:  Centroids & History
             orig_img_dims=[512,384]
@@ -119,10 +122,11 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             num_plot = 40                           # number of images to plot centroids for
             ax = plt.subplot(121, autoscale_on=False, aspect=orig_img_dims[0]*1.0/orig_img_dims[1], xlim=[0,orig_img_dims[0]], ylim=[0,orig_img_dims[1]])
             for k in range( int(Yt.shape[1]/vars_per_pred)):
-                ind = k * vars_per_pred
+                ind = ind_cx + k * vars_per_pred
+                # let's not plot non-objects
                 if (0==k):
-                    ax.plot(Yt[0:num_plot,0],Yt[0:num_plot,1],'ro', label="Expected")
-                    ax.plot(Yp[0:num_plot,0],Yp[0:num_plot,1],'go', label="Predicted")
+                    ax.plot(Yt[0:num_plot,ind],Yt[0:num_plot,ind+1],'ro', label="Expected")
+                    ax.plot(Yp[0:num_plot,ind],Yp[0:num_plot,ind+1],'go', label="Predicted")
                 else:
                     ax.plot(Yt[0:num_plot,ind],Yt[0:num_plot,ind+1],'ro')
                     ax.plot(Yp[0:num_plot,ind],Yp[0:num_plot,ind+1],'go')
@@ -136,7 +140,7 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
                 ax = plt.subplot(122, ylim=[np.min((ymin,0.01)),np.min((ymax,0.1))])    # cut the top off at 0.1 if necessary, so we can better see low-error features
                 ax.semilogy(hist, train_loss_hist,'b-',label="Train")
                 ax.semilogy(hist, val_loss_hist,'r-',label="Val")
-                ax.semilogy(hist, my_val_loss_hist,'m-',label="my Val")
+                #ax.semilogy(hist, my_val_loss_hist,'m-',label="my Val")
 
                 ax.set_xlabel('(Global) Epoch')
                 ax.set_ylabel('Loss')
@@ -167,8 +171,8 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             print("        Max pixel error =",pix_err[ipem]," (index =",ipem,", file=",val_file_list[ipem],").")
             #print("              Y_pred =",Y_pred[ipem])
             #print("              Y_val =",Y_val[ipem])
-            print("        Num ring miscounts = ",ring_miscounts,' / ',total_nonzero,'.   = ',class_acc,' % class. accuracy',sep="")
-            print("                                                           Again: my_val_loss:",my_val_loss)
+            print("        Num ring miscounts = ",ring_miscounts,' / ',total_obj,'.   = ',class_acc,' % class. accuracy',sep="")
+            print("                                                                  my_val_loss:",my_val_loss)
 
 
 

@@ -38,7 +38,7 @@ def instantiate_model(X, Y, freeze_fac=1.0):
     top_model.add(Dense(Y[0].size,name='FinalOutput'))      # Final output layer
 
     #top_model.load_weights('bootlneck_fc_model.h5')
-    model = Model(input= base_model.input, output= top_model(base_model.output))
+    model = Model(inputs= base_model.input, outputs= top_model(base_model.output))
 
     # set the first N layers (up to the last conv block)
     # to non-trainable (weights will not be updated)
@@ -52,68 +52,32 @@ def instantiate_model(X, Y, freeze_fac=1.0):
 
     return model
 
-def yolo_loss(Ypred,Ytrue):
-    # YOLO essentially uses MSE on everything.
-    #  - The authors remark (in rebuttal to NIPS reviewers) that "We tried usign softmax for classes early on but found it was not [as] effective as Euclidean loss"
-    #  - They actually predict on the square root of their bounding box sizes to make small boxes fit tighter than large boxes
-    #  - The apply different regularization parameters to different quantities (i.e. they weight them differently)
-    # Modification: We're going to use MSE on the angle of the ellipse BUT we'll regularize it by the difference between ellipse's semimajor & minor axis sizes
-    #     because we don't care what the orientation angle is for a circle.  We want long-skinny ellipses better aligned than 'fat' ellipses
-    diff = (Y_pred - Y_true)
-    se = diff**2
-
-    # regularization
-    lambda_centroid = 1.0
-    lambda_size = 1.0
-    lambda_angle = 1.0
-    lambda_noobj = 1.0
-
-    se[ind_cx:ind_cy] *= lambda_centroid
-    se[ind_semi_a:ind_semi_b] *= lambda_size
-    se[ind_angle] *= lambda_angle*((Y_true[ind_semi_a] - Y_true[ind_semi_b])/Y_true[ind_semi_a])**2  # regularize by difference, normalize by size, square to keep positive
-    se[ind_noobj] *= lambda_noobj
-
-    loss = np.mean(se)
-
-    # gradients
-    gradients = np.mean(2*diff)    # TODO: add lambda's to gradient
-
-    return loss, gradients
-
 
 def setup_model(X, Y, nb_layers=4, try_checkpoint=True,
     no_cp_fatal=False, weights_file='weights.hdf5', freeze_fac=0.75, opt='adam', parallel=True):
 
-    model = None
-    from_scratch = True
+    model = instantiate_model(X, Y, freeze_fac=freeze_fac)
+
     # Initialize weights using checkpoint if it exists.
     if (try_checkpoint):
         print("Looking for previous weights...")
         if ( isfile(weights_file) ):
             print ('Weights file detected. Loading from ',weights_file)
-            with CustomObjectScope({'relu6': keras.applications.mobilenet.relu6,'DepthwiseConv2D': keras.applications.mobilenet.DepthwiseConv2D}):
+            with CustomObjectScope({'relu6': keras.applications.mobilenet.relu6,'DepthwiseConv2D': keras.applications.mobilenet.DepthwiseConv2D, 'custom_loss':custom_loss, 'tf':tf}):
                 if parallel:   # if we're loading from something that was already a multi-gpu model
-                    multi_model = load_model(weights_file, custom_objects={"tf": tf})
-                    model = multi_model.layers[-2]   # strip parallel part, to be added back in later
+                    multi_model = load_model(weights_file)
+                    loaded_model = multi_model.layers[-2]   # strip parallel part, to be added back in later
                 else:
-                    model = load_model(weights_file, custom_objects={"tf": tf})
-
-                #model = make_parallel(model, 2)
-
-            from_scratch = False
+                    loaded_model = load_model(weights_file)
+            model.set_weights( loaded_model.get_weights() )
         else:
             if (no_cp_fatal):
                 raise Exception("*** No weights file detected; can't do anything.  Aborting.")
             else:
                 print('    No weights file detected, so starting from scratch.')
 
-    if from_scratch:
-        #model = MLP(X, num_outputs=Y.shape[1], nb_layers=nb_layers)
-        #model = MyCNN_Keras2(X, num_outputs=Y.shape[1], nb_layers=nb_layers)
-        model = instantiate_model(X, Y, freeze_fac=freeze_fac) # start by freezing
-
     if parallel:
-        model = make_parallel(model, 2)    # easier to "unfreeze" later if we leave it in serial
+        model = make_parallel(model)    # easier to "unfreeze" later if we leave it in serial
 
     loss = custom_loss # custom_loss or 'mse'
     model.compile(loss=loss, optimizer=opt)
@@ -127,17 +91,65 @@ def unfreeze_model(model, X, Y, freeze_fac=0.0, parallel=True):
     print("Unfreezing Model: make a new identical model, then copy the layer weights.")
     new_model = instantiate_model(X, Y, freeze_fac=freeze_fac)  # identical spec as original model, just not setting 'trainable=False'
 
-    if parallel:
-        single_model = model.layers[-2]         # strip off parallel part
-        new_model.set_weights( single_model.get_weights() )     # copy layer weights
-    else:
-        new_model.set_weights( model.get_weights() )     # copy layer weights
+    new_model.set_weights( make_serial( model, parallel=parallel).get_weights() )     # copy layer weights
 
     if parallel:
-        new_model = make_parallel(new_model, 2)          # kick it in to high gear
+        new_model = make_parallel(new_model)
 
     opt = Adam()#lr=0.0001)
-
-    new_model.compile(loss='mse', optimizer=opt)
+    loss = custom_loss # custom_loss or 'mse'
+    new_model.compile(loss=loss, optimizer=opt)
     print("  ...finished un-freezing model")
     return new_model
+
+
+# Loss functions
+
+lambda_center = 1.0
+lambda_size = 1.0
+lambda_angle = 30.0
+lambda_noobj = 0.3
+lambda_class = 10.0
+
+def custom_loss(y_true, y_pred):  # it's just MSE but the angle term is weighted by (a-b)^2
+    print("custom_loss function engaged!")
+    sqerr = K.square(y_true - y_pred)   # loss is 'built on' squared error
+    pobj = 1 - y_true[:, ind_noobj::vars_per_pred]   # probability of object", i.e. existence.  if no object, then we don't care about the rest of the variables
+
+    loss = lambda_center * ( K.sum(pobj* sqerr[:,ind_cx::vars_per_pred],     axis=-1) + K.sum(pobj* sqerr[:,ind_cy:-1:vars_per_pred], axis=-1))
+    loss += lambda_size  * ( K.sum(pobj* sqerr[:,ind_semi_a::vars_per_pred], axis=-1) + K.sum(pobj* sqerr[:,ind_semi_b:-1:vars_per_pred], axis=-1))
+    abdiff = y_true[:, ind_semi_a::vars_per_pred] - y_true[:, ind_semi_b:-1:vars_per_pred]
+    loss += lambda_angle * K.sum(pobj* sqerr[:, ind_angle::vars_per_pred] * K.square(abdiff) , axis=-1)
+    loss += lambda_noobj * K.sum(sqerr[:, ind_noobj::vars_per_pred], axis=-1)
+    loss += lambda_class * K.sum( pobj * sqerr[:, ind_rings::vars_per_pred], axis=-1)
+
+    # take average
+    ncols = K.int_shape(y_pred)[-1]
+    loss /= ncols
+    return K.mean(loss)
+
+
+def my_loss(y_true, y_pred):  # same as custom_loss but via numpy for easier diagnostics; inputs should be numpy arrays, not Tensors
+    y_shape = y_pred.shape
+    print("    my_loss: y_shape = ",y_shape)
+    sqerr = (y_true - y_pred)**2   # loss is 'built on' squared error
+    pobj = 1 - y_true[:, ind_noobj::vars_per_pred]   # probability of object", i.e. existence.  if no object, then we don't care about the rest of the variables
+
+    center_loss = lambda_center * (np.sum(pobj* sqerr[:,ind_cx::vars_per_pred],     axis=-1) + np.sum(pobj* sqerr[:,ind_cy::vars_per_pred], axis=-1))
+    size_loss   = lambda_size  * ( np.sum(pobj* sqerr[:,ind_semi_a::vars_per_pred], axis=-1) + np.sum(pobj* sqerr[:,ind_semi_b::vars_per_pred], axis=-1))
+    abdiff = y_true[:, ind_semi_a::vars_per_pred] - y_true[:, ind_semi_b::vars_per_pred]
+    angle_loss  = lambda_angle * np.sum(pobj * sqerr[:, ind_angle::vars_per_pred] * (abdiff**2) , axis=-1)
+    noobj_loss  = lambda_noobj * np.sum(sqerr[:, ind_noobj::vars_per_pred], axis=-1)
+    class_loss  = lambda_class * np.sum(pobj * sqerr[:, ind_rings::vars_per_pred], axis=-1)
+
+    losses = np.array([center_loss, size_loss, angle_loss, noobj_loss, class_loss])
+    losses = np.mean(losses,axis=-1)
+    big_ind = np.argmax(losses)
+
+    print("    my_loss: by class: [   center,        size,          angle,           noobj,          class]")
+    print("              losses =",losses,", ind of biggest =",big_ind)
+    loss = np.sum(losses)
+    # take average
+    ncols = y_pred.shape[-1]
+    loss /= ncols
+    return loss
