@@ -64,11 +64,8 @@ def setup_model(X, Y, nb_layers=4, try_checkpoint=True,
         if ( isfile(weights_file) ):
             print ('Weights file detected. Loading from ',weights_file)
             with CustomObjectScope({'relu6': keras.applications.mobilenet.relu6,'DepthwiseConv2D': keras.applications.mobilenet.DepthwiseConv2D, 'custom_loss':custom_loss, 'tf':tf}):
-                if parallel:   # if we're loading from something that was already a multi-gpu model
-                    multi_model = load_model(weights_file)
-                    loaded_model = multi_model.layers[-2]   # strip parallel part, to be added back in later
-                else:
-                    loaded_model = load_model(weights_file)
+                loaded_model = make_serial( load_model(weights_file) , parallel=parallel)   # strip previous parallel part, to be added back in later
+
             model.set_weights( loaded_model.get_weights() )
         else:
             if (no_cp_fatal):
