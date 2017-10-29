@@ -18,7 +18,7 @@ from keras.layers.advanced_activations import ELU, PReLU, LeakyReLU
 from keras.callbacks import ModelCheckpoint, Callback, EarlyStopping, TensorBoard
 from keras.optimizers import SGD, Adam
 from os.path import isfile
-
+from utils import *
 from multi_gpu import *
 
 def instantiate_model(X, Y, freeze_fac=1.0):
@@ -53,13 +53,33 @@ def instantiate_model(X, Y, freeze_fac=1.0):
     return model
 
 def yolo_loss(Ypred,Ytrue):
-    # We're going to use MSE on the centroid locations and for the ellipse width & height
-    # we're going to use cross-entropy on the "does an object exist" and the "count the number of rings"
-    #     (Note equivalently, "does object exist" is isomorphic to  "probability of zero rings")
-    #        (Note: technically, counting 0 for number of rings SHOULD work for 'does an object exist', but we're copying YOLO on this)
-    # and we're going to use MSE on the angle of the ellipse BUT we'll weight it by the difference between ellipse's semimajor & minor axis sizes
-    #     because we don't care what the orientation angle is for a circle.
-    return
+    # YOLO essentially uses MSE on everything.
+    #  - The authors remark (in rebuttal to NIPS reviewers) that "We tried usign softmax for classes early on but found it was not [as] effective as Euclidean loss"
+    #  - They actually predict on the square root of their bounding box sizes to make small boxes fit tighter than large boxes
+    #  - The apply different regularization parameters to different quantities (i.e. they weight them differently)
+    # Modification: We're going to use MSE on the angle of the ellipse BUT we'll regularize it by the difference between ellipse's semimajor & minor axis sizes
+    #     because we don't care what the orientation angle is for a circle.  We want long-skinny ellipses better aligned than 'fat' ellipses
+    diff = (Y_pred - Y_true)
+    se = diff**2
+
+    # regularization
+    lambda_centroid = 1.0
+    lambda_size = 1.0
+    lambda_angle = 1.0
+    lambda_noobj = 1.0
+
+    se[ind_cx:ind_cy] *= lambda_centroid
+    se[ind_semi_a:ind_semi_b] *= lambda_size
+    se[ind_angle] *= lambda_angle*((Y_true[ind_semi_a] - Y_true[ind_semi_b])/Y_true[ind_semi_a])**2  # regularize by difference, normalize by size, square to keep positive
+    se[ind_noobj] *= lambda_noobj
+
+    loss = np.mean(se)
+
+    # gradients
+    gradients = np.mean(2*diff)    # TODO: add lambda's to gradient
+
+    return loss, gradients
+
 
 def setup_model(X, Y, nb_layers=4, try_checkpoint=True,
     no_cp_fatal=False, weights_file='weights.hdf5', freeze_fac=0.75, opt='adam', parallel=True):
@@ -95,7 +115,8 @@ def setup_model(X, Y, nb_layers=4, try_checkpoint=True,
     if parallel:
         model = make_parallel(model, 2)    # easier to "unfreeze" later if we leave it in serial
 
-    model.compile(loss='mse', optimizer=opt)
+    loss = custom_loss # custom_loss or 'mse'
+    model.compile(loss=loss, optimizer=opt)
 
     model.summary()
 

@@ -133,18 +133,14 @@ def does_overlap_previous(box, boxes_arr):
 
 
 
-def draw_antinodes(img,num_antinodes=1,framenum=0):
+def draw_antinodes(img,num_antinodes=1):
     boxes_arr = []
     caption = ""
 
     if (num_antinodes==0):
         caption = "[{0}, {1}, {2}, {3}, {4}, {5}]".format( imWidth/2.0,  imHeight/2.0,    0,  imWidth/4.0,    imHeight/4.0,    90.0)
     for an in range(num_antinodes): # draw a bunch of antinodes
-        #print("an = ",an)
         num_rings = random.randint(1,11)            # well say that an antinode has at least 1 ring
-        #if (0==num_rings):
-        #    caption = "[{0}, {1}, {2}, {3}, {4}, {5}]".format(0, 0, 0, 0, 0, 0)
-        #    break
 
         axes = (random.randint(15,int(imWidth/3)), random.randint(15,int(imHeight/3)))   # semimajor and semiminor axes of ellipse
         axes = sorted(axes, reverse=True)   # do descending order, for definiteness
@@ -171,8 +167,6 @@ def draw_antinodes(img,num_antinodes=1,framenum=0):
 # [x coordinate of antinode center, y coordinate, subject_id/frame_num,
 # number of fringes for that region, radius in the x direction, radius in y (if there were no rotation)
 # and the angle the ellipse is at]
-        #print("[",center[0],", ",center[1],", ", ", num_rings,", ",
-        #    axes[0],", ",axes[1],", ",angle,"]",sep="")
         this_caption = "[{0}, {1}, {2}, {3}, {4}, {5}]".format(center[0], center[1],num_rings,axes[0],axes[1],angle)
         #print(this_caption)
         if (an > 0):
@@ -189,9 +183,11 @@ def make_sure_path_exists(path):
         if exception.errno != errno.EEXIST:
             raise
 
-maxframes = 50000
-num_tasks = 80    # we've got 12 processors. choose a number with a large (num_tasks % 12) that's still a factor of num_frames
-frames_per_task= int(round(maxframes / num_tasks))
+# TODO: haven't figured out how to pass args when multiprocessing; the following globals should be replaced w/ args at some point
+frame_start = 0
+num_frames = 240000
+num_tasks = 12    # we've got 12 processors. choose a number with a large (num_tasks % 12) that's still a factor of num_frames
+frames_per_task= int(round(num_frames / num_tasks))
 
 def gen_images(task):
     # have different tasks generate different parts of the dataset
@@ -204,23 +200,25 @@ def gen_images(task):
         dirname = 'Val'    # 20% Val
 
     for iframe in range(frames_per_task):
-        framenum = task * frames_per_task + iframe
+        framenum = frame_start + task * frames_per_task + iframe
         if (0 == framenum % 50):
-            print("task",task,": framenum = ",framenum)
+            pad = ' '.rjust(4*task)
+            print(pad,"task",task,": framenum = ",framenum,", ending at ",(task+1)*frames_per_task-1)
         np_dims = (imHeight, imWidth, 1)                       # for numpy, dimensions are reversed
 
         img = np.zeros(np_dims, np.uint8)
 
         draw_waves(img)
 
+        max_antinodes = 6
         num_antinodes= 6# random.randint(0,max_antinodes)   # should we allow zero antinodes?
 
-        img, caption = draw_antinodes(img, num_antinodes=num_antinodes, framenum=framenum)
+        img, caption = draw_antinodes(img, num_antinodes=num_antinodes)
         #img = cv2.GaussianBlur(img,(7,7),0)
         noise = cv2.randn(np.zeros(np_dims, np.uint8),50,50);
         img = cv2.add(img, noise)
 
-        prefix = dirname+'/steelpan_'+str(framenum).zfill(5)
+        prefix = dirname+'/steelpan_'+str(framenum).zfill(7)
         #print("Task ", task,": writing with prefix",prefix)
         cv2.imwrite(prefix+'.bmp',img)
         with open(prefix+".txt", "w") as text_file:
@@ -238,13 +236,11 @@ if __name__ == "__main__":
 
     random.seed(1)
 
-    max_antinodes = 6
 
 
     num_procs = multiprocessing.cpu_count()
     print(num_procs," processors available, assigning ",num_tasks,"tasks..")
     tasks = range(num_tasks)
-    frames_per_task = int(maxframes / num_tasks)
     pool = multiprocessing.Pool()
     results = pool.map(gen_images, tasks)
     pool.close()

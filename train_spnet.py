@@ -7,7 +7,7 @@ mpl.use('Agg')
 import matplotlib.pyplot as plt
 import keras
 import tensorflow as tf
-from tensorflow.contrib.keras.python.keras import backend as K
+import keras.backend as K
 from keras.callbacks import ModelCheckpoint, Callback, EarlyStopping, TensorBoard
 import time
 from distutils.version import LooseVersion
@@ -17,10 +17,9 @@ from models import *
 from utils import *
 
 
-def calc_errors(Yp, Yt, ind_rings=2, vars_per_pred=6):  #index = 2 is where the ring count is stored.
+def calc_errors(Yp, Yt):  #index = 2 is where the ring count is stored.
                              # Yp & Yt have already been 'denormalized' at this point
     max_pred_antinodes = int(Yt.shape[1]/vars_per_pred)
-
     diff = Yp - Yt
     # pixel error in antinode centers
     pix_err = np.sqrt(diff[:,0]**2 + diff[:,1]**2)
@@ -46,21 +45,21 @@ def calc_errors(Yp, Yt, ind_rings=2, vars_per_pred=6):  #index = 2 is where the 
 hist = []
 train_loss_hist = []
 val_loss_hist = []
+my_val_loss_hist = []
 
 global_count = 0                	       # global_count is handy when nb_epoch = 1
-n_epochs_per_plot = 2
+n_epochs_per_plot = 1
 class MyProgressCallback(Callback):      # Callbacks essentially get inserted into code at model.fit()
 
     def __init__(self, X_val=None, Y_val=None, val_file_list=None,
         #X_test=None, Y_test=None, test_file_list=None,
-        log_dir="./logs", use_tb=False, vars_per_pred=6, pred_shape=[3,3,4,6]):
+        log_dir="./logs", use_tb=False, pred_shape=[3,3,4,6]):
         self.X_val = X_val
         self.Y_val = Y_val
         self.val_file_list = val_file_list
         self.buf = io.BytesIO()
         self.log_dir = log_dir
         self.use_tb = use_tb              # use tensorboard
-        self.vars_per_pred = vars_per_pred
         #self.max_pred_antinodes=max_pred_antinodes
         self.pred_shape = pred_shape
 
@@ -68,6 +67,7 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
         hist = []
         train_loss_hist = []
         val_loss_hist = []
+        my_val_loss_hist = []
 
         if (self.use_tb):
             self.sess = K.get_session()
@@ -81,6 +81,7 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
         if (0 == global_count % n_epochs_per_plot):  # only do this stuff every n_epochs_per_plot
             hist.append(global_count)
             train_loss_hist.append(logs.get('loss'))
+            val_loss_hist.append(logs.get('val_loss'))
 
             X_val = self.X_val
             Y_val = self.Y_val
@@ -97,17 +98,17 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             elapsed = time.time() - start_time
             print("    ...elapsed time to predict = ",elapsed,"s.   FPS = ",m*1.0/elapsed)
 
-            print("     Calculating my_val_loss... ",end="")
-            my_val_loss = my_loss(Y_pred, Y_val, vars_per_pred=self.vars_per_pred)
-            #val_loss_hist.append(logs.get('val_loss'))                 # TODO: modify Keras' loss function to match mine
-            val_loss_hist.append(my_val_loss)
-            print("  my_val_loss = ",my_val_loss)
+            my_val_loss = my_loss(Y_val, Y_pred)
+            my_val_loss_hist.append(my_val_loss)
 
             # calc some errors.  first transform back into regular 'world' values via de-normalization
             Yt = denorm_Y(Y_val)     # t is for true
             Yp = denorm_Y(Y_pred)
 
-            ring_miscounts, pix_err, ipem = calc_errors(Yp, Yt, vars_per_pred=self.vars_per_pred)
+            # A few metrics
+            ring_miscounts, pix_err, ipem = calc_errors(Yp, Yt)
+            total_nonzero = Yt.shape[0]* 6   #TODO: fix the '6'=antinodes per image;  total non-zero antinode predictions
+            class_acc = (total_nonzero-ring_miscounts)*1.0/total_nonzero*100
 
             # Plot Progress:  Centroids & History
             orig_img_dims=[512,384]
@@ -115,10 +116,10 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             self.fig.clf()
 
             # Plot centroids
-            num_plot = 50                           # number of images to plot centroids for
+            num_plot = 40                           # number of images to plot centroids for
             ax = plt.subplot(121, autoscale_on=False, aspect=orig_img_dims[0]*1.0/orig_img_dims[1], xlim=[0,orig_img_dims[0]], ylim=[0,orig_img_dims[1]])
-            for k in range( int(Yt.shape[1]/self.vars_per_pred)):
-                ind = k * self.vars_per_pred
+            for k in range( int(Yt.shape[1]/vars_per_pred)):
+                ind = k * vars_per_pred
                 if (0==k):
                     ax.plot(Yt[0:num_plot,0],Yt[0:num_plot,1],'ro', label="Expected")
                     ax.plot(Yp[0:num_plot,0],Yp[0:num_plot,1],'go', label="Predicted")
@@ -133,10 +134,13 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
                 ymin = np.min(train_loss_hist + val_loss_hist)
                 ymax = np.max(train_loss_hist + val_loss_hist)
                 ax = plt.subplot(122, ylim=[np.min((ymin,0.01)),np.min((ymax,0.1))])    # cut the top off at 0.1 if necessary, so we can better see low-error features
-                ax.semilogy(hist, val_loss_hist,'m-',label="my Val")
-                ax.semilogy(hist, train_loss_hist,'c-',label="Train")
+                ax.semilogy(hist, train_loss_hist,'b-',label="Train")
+                ax.semilogy(hist, val_loss_hist,'r-',label="Val")
+                ax.semilogy(hist, my_val_loss_hist,'m-',label="my Val")
+
                 ax.set_xlabel('(Global) Epoch')
                 ax.set_ylabel('Loss')
+                ax.set_title('class accuracy = {:5.2f} %'.format(class_acc))
                 ax.legend(loc='upper right', fancybox=True, framealpha=0.8)
                 plt.xlim(xmin=0)
 
@@ -155,18 +159,16 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
                 self.writer.add_summary(summary, step)
                 #writer.close()
 
-            print("     Drawing sample ellipses for the above...")
-            show_pred_ellipses(Yt, Yp, val_file_list, num_draw=50, log_dir=self.log_dir, ind_extra=ipem)
+            show_pred_ellipses(Yt, Yp, val_file_list, num_draw=30, log_dir=self.log_dir, ind_extra=ipem)
 
             # Print additional diagnostics
-            total_nonzero = Yt.shape[0]* 6   #TODO: fix the '6'=antinodes per image;  total non-zero antinode predictions
             print("    In whole val dataset:")
             print('        Mean pixel error =',np.mean(pix_err))
             print("        Max pixel error =",pix_err[ipem]," (index =",ipem,", file=",val_file_list[ipem],").")
             #print("              Y_pred =",Y_pred[ipem])
             #print("              Y_val =",Y_val[ipem])
-            print("        Num ring miscounts = ",ring_miscounts,' / ',total_nonzero,'.   = ',(total_nonzero-ring_miscounts)*1.0/total_nonzero*100,' % class. accuracy',sep="")
-            print("                                                         Again: my_val_loss:",my_val_loss)
+            print("        Num ring miscounts = ",ring_miscounts,' / ',total_nonzero,'.   = ',class_acc,' % class. accuracy',sep="")
+            print("                                                           Again: my_val_loss:",my_val_loss)
 
 
 
@@ -174,18 +176,18 @@ def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0):
     np.random.seed(1)
 
     print("Getting data..., fraction = ",fraction)
-    X_train, Y_train, img_dims, train_file_list, pred_shape = build_dataset(path=datapath, load_frac=fraction, set_means_ranges=True, force_dim=None)
+    X_train, Y_train, img_dims, train_file_list, pred_shape = build_dataset(path=datapath, load_frac=fraction, set_means_ranges=True)
 #    testpath="Test/"
 #    X_test, Y_test, img_dims, test_file_list  = build_dataset(path=testpath, load_frac=fraction)
     valpath="Val/"
-    X_val, Y_val, img_dims, val_file_list, pred_shape  = build_dataset(path=valpath, load_frac=fraction, set_means_ranges=False, force_dim=None)
+    X_val, Y_val, img_dims, val_file_list, pred_shape  = build_dataset(path=valpath, load_frac=fraction, set_means_ranges=False)
 
     print("Instantiating model...")
     model = setup_model(X_train, Y_train, no_cp_fatal=False, weights_file=weights_file)
 
     # Params for training: batch size, ....
-    batch_size = 20     # greater size runs faster but may yield Out Of Memory errors
-
+    batch_size = 20 #20 for large images    # greater batch size runs faster but may yield Out Of Memory errors
+                                            # also note that small batches yield better generalization: https://arxiv.org/pdf/1609.04836.pdf
     # Set up callbacks
     checkpointer = ModelCheckpoint(filepath=weights_file, save_best_only=True)
     #history = KerasLossHistory()

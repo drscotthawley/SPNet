@@ -1,3 +1,4 @@
+
 import numpy as np
 import matplotlib as mpl
 mpl.use('Agg')
@@ -7,6 +8,11 @@ from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_a
 import cv2
 import PIL
 from operator import itemgetter
+import keras.backend as K
+import tensorflow as tf
+
+
+dtype = np.float32
 
 # Define some colors: openCV uses BGR instead of RGB
 blue = (255,0,0)
@@ -15,6 +21,16 @@ green = (0,255,0)
 white = (255)
 black = (0)
 grey = (128)
+
+# define indices for different parts of the data stream
+vars_per_pred = 7
+ind_cx = 0
+ind_cy = 1
+ind_semi_a = 2
+ind_semi_b = 3
+ind_angle = 4
+ind_noobj = 5
+ind_rings = 6
 
 
 
@@ -40,7 +56,7 @@ def draw_ellipse(
 
 
 # draws a bunch of sample output files showing where ellipses are on images
-def show_pred_ellipses(Yt, Yp, file_list, num_draw=30, log_dir='./logs/', vars_per_pred=6, ind_extra=None):
+def show_pred_ellipses(Yt, Yp, file_list, num_draw=30, log_dir='./logs/', ind_extra=None):
     # Yt & Yp are already de-normed.  Yt = true,  Yp= predict
     m = Yt.shape[0]
     num_draw = min(num_draw,m)
@@ -64,22 +80,23 @@ def show_pred_ellipses(Yt, Yp, file_list, num_draw=30, log_dir='./logs/', vars_p
         max_pred_antinodes = int(Yt[0].size / vars_per_pred)
         for an in range(max_pred_antinodes):    # count through all antinodes
 
-            [cx, cy, rings, a, b, angle] = Yt[j,an*vars_per_pred:(an+1)*vars_per_pred]   # ellipse for Testing
-            cx, cy, rings, a, b = int(round(cx)), int(round(cy)), int(round(rings)), int(round(a)), int(round(b))
+            [cx, cy, a, b, angle, noobj, rings] = Yt[j,an*vars_per_pred:(an+1)*vars_per_pred]   # ellipse for Testing
+            cx, cy,  a, b, noobj, rings = int(round(cx)), int(round(cy)),  int(round(a)), int(round(b)), int(round(noobj)), int(round(rings)) # OpenCV wants ints or it barfs
 
 
             if (an==0):
                 print("       True:   {: >5d}, {: >5d},  {: >3d},  {: >5d}, {: >5d},   {: >6.2f}".format(cx, cy, rings, a, b, angle))
-            if (rings > 0) and (a>=0) and (b>=0):
+            if (noobj < 0.5) and (rings > 0) and (a>=0) and (b>=0):  # only draw if you should and if you can
                 draw_ellipse(img, [cx, cy], [a,b], angle, color=red, thickness=1)
                 cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy+2), cv2.FONT_HERSHEY_TRIPLEX, 0.85, black, lineType=cv2.LINE_AA);  # add a little outline for readibility
                 cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy), cv2.FONT_HERSHEY_TRIPLEX, 0.75, red, lineType=cv2.LINE_AA);
 
-            [cx, cy, rings, a, b, angle] = Yp[j,an*vars_per_pred:(an+1)*vars_per_pred]   # ellipse for Prediction
-            cx, cy, rings, a, b = int(round(cx)), int(round(cy)), int(round(rings)), int(round(a)), int(round(b))
+            [cx, cy, a, b, angle, noobj, rings] = Yp[j,an*vars_per_pred:(an+1)*vars_per_pred]   # ellipse for Prediction
+            cx, cy,  a, b, noobj, rings = int(round(cx)), int(round(cy)),  int(round(a)), int(round(b)), int(round(noobj)), int(round(rings)) # OpenCV wants ints or it barfs
+
             if (an==0):
                 print("       Pred:   {: >5d}, {: >5d},  {: >3d},  {: >5d}, {: >5d},   {: >6.2f}".format(cx, cy, rings, a, b, angle))
-            if (rings > 0) and (a>=0) and (b>=0):
+            if (noobj < 0.5) and (rings > 0) and (a>=0) and (b>=0):  # only draw if you should and if you can
                 draw_ellipse(img, [cx, cy], [a,b], angle, color=green, thickness=1)
                 cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy+27), cv2.FONT_HERSHEY_TRIPLEX, 0.85, black, lineType=cv2.LINE_AA);     # dark outline
                 cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy+25), cv2.FONT_HERSHEY_TRIPLEX, 0.75, green, lineType=cv2.LINE_AA);
@@ -88,28 +105,80 @@ def show_pred_ellipses(Yt, Yp, file_list, num_draw=30, log_dir='./logs/', vars_p
 
     return
 
+def iou_score(ell_1, ell_2):  # compute intersection-over-union for two rotated ellipses
+    # for now: ingore rotation, and treat ellipses as boxes
+    # TODO: come back and fix this
+    return
 
 
-def my_loss(Ypred, Ytrue, vars_per_pred=6):  # this is MSE but the angle is deprecated
-    sqerr = (Ypred - Ytrue)**2
 
-    # multiple angle by a-b  (so angle matters less for circles)  use a & b from true
-    max_pred_antinodes = int(Ytrue.shape[1]/vars_per_pred)
-    for an in range(max_pred_antinodes):
-        i_start = an * vars_per_pred
-        ind_a = i_start + 3
-        ind_b = i_start + 4
-        ind_angle = i_start + 5
-        sqerr[:,ind_angle] = sqerr[:,ind_angle] * (Ytrue[:,ind_a] - Ytrue[:,ind_b])
+def custom_loss_old(y_true, y_pred):
+    # first sum up the squared error column-wise
+    sqerr = K.square(y_true - y_pred)
+    loss = K.sum(sqerr, axis=-1)
 
+    # subtract the loss for the sliced part
+    loss -= K.sum(sqerr[:, 4:-1:7], axis=-1)
+
+    # add back the adjusted loss for the sliced part
+    numerator = y_true[:, 2:-1:7] - y_true[:, 3:-1:7]
+    loss += K.sum(sqerr[:, 4:-1:7] * K.square(numerator ), axis=-1)
+
+    # take average
+    ncols = K.int_shape(y_pred)[-1]
+    loss /= ncols
+    return K.mean(loss)
+
+
+lambda_center = 1.0
+lambda_size = 1.0
+lambda_angle = 100.0  # compensate for (a-b)^2 being a small number on the -.5,.5 domain
+lambda_noobj = 1.0
+lambda_class = 50.0  # compensate for normalization, place on equal weight with other quantities
+
+def custom_loss(y_true, y_pred):  # it's just MSE but the angle term is weighted by (a-b)^2
+    sqerr = K.square(y_true - y_pred)   # loss is 'built on' squared error
+    loss = lambda_center * ( K.sum(sqerr[:,ind_cx:-1:vars_per_pred],     axis=-1) + K.sum(sqerr[:,ind_cy:-1:vars_per_pred], axis=-1))
+    loss += lambda_size  * ( K.sum(sqerr[:,ind_semi_a:-1:vars_per_pred], axis=-1) + K.sum(sqerr[:,ind_semi_b:-1:vars_per_pred], axis=-1))
+    abdiff = y_true[:, ind_semi_a:-1:vars_per_pred] - y_true[:, ind_semi_b:-1:vars_per_pred]
+    loss += lambda_angle * K.sum(sqerr[:, ind_angle:-1:vars_per_pred] * K.square(abdiff) , axis=-1)
+    loss += lambda_noobj * K.sum(sqerr[:, ind_noobj:-1:vars_per_pred], axis=-1)
+    loss += lambda_class * K.sum(sqerr[:, ind_rings:-1:vars_per_pred], axis=-1)
+
+    # take average
+    ncols = K.int_shape(y_pred)[-1]
+    loss /= ncols
+    return K.mean(loss)
+
+
+def my_loss(y_true, y_pred):  # it's just MSE but the angle term is weighted by (a-b)^2
+    sqerr = (y_true - y_pred)**2   # loss is 'built on' squared error
+    center_loss = lambda_center * ( K.sum(sqerr[:,ind_cx:-1:vars_per_pred],     axis=-1) + K.sum(sqerr[:,ind_cy:-1:vars_per_pred], axis=-1))
+    size_loss   = lambda_size  * ( K.sum(sqerr[:,ind_semi_a:-1:vars_per_pred], axis=-1) + K.sum(sqerr[:,ind_semi_b:-1:vars_per_pred], axis=-1))
+    abdiff = y_true[:, ind_semi_a:-1:vars_per_pred] - y_true[:, ind_semi_b:-1:vars_per_pred]
+    angle_loss  = lambda_angle * K.sum(sqerr[:, ind_angle:-1:vars_per_pred] * K.square(abdiff) , axis=-1)
+    noobj_loss  = lambda_noobj * K.sum(sqerr[:, ind_noobj:-1:vars_per_pred], axis=-1)
+    class_loss  = lambda_class * K.sum(sqerr[:, ind_rings:-1:vars_per_pred], axis=-1)
+
+    losses = np.array([center_loss, size_loss, angle_loss, noobj_loss, class_loss])
+    big_ind = np.argmax(losses)
+    print("     my_loss: losses = ",losses,", ind of biggest = ",big_ind)
+    loss = np.sum(losses)
+    # take average
+    ncols = y_pred.shape[-1]
+    loss /= ncols
+    return K.mean(loss)
+
+
+def my_loss_old(y_true, y_pred): # The following is only suitable for numpy arrays, not for Keras/TF/Theano tensors
+    # This is MSE but the angle is term is specially weighted:
+    #     multiply angle by a-b  (so angle matters less for circles)  use a & b from true
+    sqerr = (y_true-y_pred)**2
+    sqerr[:,ind_angle:-1:vars_per_pred] *= (y_true[:,ind_semi_a:-1:vars_per_pred] - y_true[:,ind_semi_b:-1:vars_per_pred])**2
     return sqerr.mean()
 
 
 orig_img_dims=[512,384]
-#means1 =  [ orig_img_dims[0]/2.0,  orig_img_dims[1]/2.0,    5.0,  orig_img_dims[0]/4.0,    orig_img_dims[1]/4,    90.0]
-#ranges1 = [ orig_img_dims[0],      orig_img_dims[1],       10.0,  orig_img_dims[0]/2.0,  orig_img_dims[1]/2.0,   180.0]
-
-#default0 =  [ means1[0], means1[1],   0.0,  means1[3], means1[4], means1[5]] # no-op for zero rings
 means = []
 ranges = []
 def norm_Y(Y, set_means_ranges=False):  # not using this yet, but might be handy
@@ -117,8 +186,8 @@ def norm_Y(Y, set_means_ranges=False):  # not using this yet, but might be handy
     if (False):  # this doesn't work. TODO: fix it!
         means = np.mean(Y,axis=0)
         ranges = np.var(Y,axis=0)    # variance
-    print("means = ",means)
-    print("ranges = ",ranges)
+    #print("means = ",means)
+    #print("ranges = ",ranges)
     return (Y-means)/ranges #,  means, ranges
 
 def denorm_Y(normY):
@@ -126,43 +195,59 @@ def denorm_Y(normY):
     return normY*ranges + means
 
 
-# TODO: remove item from list once assigned
-def true_to_pred_grid(true_arr, pred_shape, img_filename=None):    # the essence of the YOLO-style approach
+def one_hot_list(target_ind, num):  # makes an list num elements long, of zeros, except at target_ind where it's 1
+    one_hot = [0]*num
+    one_hot[int(target_ind)] = 1
+    return one_hot
+
+def eval_classifier(one_hot_pred):   # one_hot_pred includes [ confidence of 0 rings / non-existence, confidence of 1 ring, ..., confidence of 11 rings ]
+    # note that 'confidence' is similar to probability but is not necessarily bounded by 0,1
+    # And note that YOLO authors don't use softmax activation.
+    # So whichever confidence is highest, simply wins
+    '''# if one_hot_pred[0] < 0.5:    # ok, this assumes we have a mean of zero between
+    # return 0    # nothing exists here, return zero (as in zero rings)
+    # ring_count = 1 + np.argmax(one_hot_pred[1:])     # don't include the 0-ring part when computing argmax'''
+    # So all we're left with, then, is...
+    return np.argmax(one_hot_pred)   # returns an integer, where 0 denotes nothing there
+
+
+def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None):    # the essence of the YOLO-style approach
                                     # this takes our 'true' antinode info, and assigns it across the 'grid' of predictors, i.e. YOLO-style
                                     # true_arr is a list of antinode data which has been read from a text file
                                     # pred_shape has dimensions [nx, nx, preds_per_cell, vars_per_pred]
     # TODO: and each value is organized (according to loss type) as
-    #   cx, cy, prob_exist, prob_1_ring, prob_2_rings,...prob_11_rings,
+    #   cx, cy, a, b, angle, prob_exist (or 0 rings), prob_1_ring, prob_2_rings,..., prob_11_rings
+    #   ... 17 variables in all
     global means, ranges
 
-    true_arr = np.array(true_arr)   # convert from list to array
-
+    true_arr = np.array(true_arr, dtype=dtype)   # convert from list to array
     xbinsize = int(orig_img_dims[0] / pred_shape[0])
     ybinsize = int(orig_img_dims[1] / pred_shape[1])
 
-    # also, set up the means & ranges for normalization, according to the grid of predictors
-    gridmeans = np.zeros(pred_shape,dtype=np.float32)
-    gridranges = np.zeros(pred_shape,dtype=np.float32)
-    griddefaults = np.zeros(pred_shape,dtype=np.float32)
+    # Also, set up the means & ranges for normalization, according to the grid of predictors
+    gridmeans = np.zeros(pred_shape,dtype=dtype)
+    gridranges = np.zeros(pred_shape,dtype=dtype)
+    griddefaults = np.zeros(pred_shape,dtype=dtype)
     for i in range(pred_shape[0]):
         for j in range(pred_shape[1]):
             grid_cx = i*xbinsize + xbinsize/2
             grid_cy = j*ybinsize + ybinsize/2
-            gridmeans[i,j] =    [grid_cx,    grid_cy,    5.0,  xbinsize/2,    ybinsize/2,    90.0]
-            gridranges[i,j] =   [xbinsize,  ybinsize,   10.0,    xbinsize,      ybinsize,   180.0]
-            griddefaults[i,j] = [grid_cx,    grid_cy,    0.0,  xbinsize/2,    ybinsize/2,    90.0]
+            #           format: [cx,         cy,           a,              b,        angle,  noobj,  num_rings]   noobj = 0/1 flag for background
+            gridmeans[i,j] =    [grid_cx,    grid_cy,   xbinsize/2,    ybinsize/2,    90.0,   0.5,    5] # + [0]*(num_classes+1)
+            gridranges[i,j] =   [xbinsize,  ybinsize,   xbinsize,      ybinsize,     180.0,     1,   10] #+ [1]*(num_classes+1)
+            griddefaults[i,j] = [grid_cx,    grid_cy,   xbinsize/2,    ybinsize/2,    90.0,     1,    0] # default is noobj=1, rings=0
 
     gridYi = np.copy(griddefaults)              # initialize a single grid-Y output with default values
 
     means = gridmeans.flatten()                 # assign global means & ranges for later
     ranges = gridranges.flatten()
 
-
+    # Now here's where we actually assign the true_arr values
     #print("divvy_up_true: true_arr = ",true_arr)
     assigned_counts = np.zeros(gridYi.shape[0:2],dtype=np.int)   # count up how many times a given array has been assigned
     for an in range(true_arr.shape[0]):
         #print("      true_arr[an,0] = ",true_arr[an,0],",  xbinsize, ybinsize = ",xbinsize, ybinsize)
-        ind_x = int(true_arr[an,0] / xbinsize)
+        ind_x = int(true_arr[an,0] / xbinsize)  # index within the grid of predictors
         ind_y = int(true_arr[an,1] / ybinsize)
         #print("            ind_x, ind_y = ",ind_x, ind_y,", assigned_counts[ind_x, ind_y] =",assigned_counts[ind_x, ind_y])
         if not (assigned_counts[ind_x, ind_y] < pred_shape[2]):
@@ -183,7 +268,7 @@ def true_to_pred_grid(true_arr, pred_shape, img_filename=None):    # the essence
 
 
 # builds the Training or Test data set
-def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscale=False, pred_grid=[5,5,3], vars_per_pred=6, force_dim=None):
+def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscale=False, force_dim=224, pred_grid=[5,5,3]):
     global means, ranges
 
     img_file_list = sorted(glob.glob(path+'steelpan*.bmp'))
@@ -199,6 +284,7 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
     print("       first file = ",img_filename)
     img = load_img(img_filename)  # this is a PIL image
 
+    print("       force_dim = ",force_dim)
 
     if (force_dim is not None):                 # resize if needed
         print("        Resizing to ",force_dim,"x",force_dim)
@@ -211,20 +297,21 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
     pred_shape = [pred_grid[0],pred_grid[1],pred_grid[2],vars_per_pred]  # shape of output predictions = grid_shape * vars per_grid
 
     if (grayscale):
-        X = np.zeros((total_load, img_dims[0], img_dims[1],1),dtype=np.float32)
+        X = np.zeros((total_load, img_dims[0], img_dims[1],1),dtype=dtype)
     else:
-        X = np.zeros((total_load, img_dims[0], img_dims[1], img_dims[2]),dtype=np.float32)
+        X = np.zeros((total_load, img_dims[0], img_dims[1], img_dims[2]),dtype=dtype)
 
     pred_shape = np.array(pred_shape,dtype=np.int)
     num_outputs = np.prod(np.array(pred_shape))
     #print("pred_shape, num_outputs = ",pred_shape,num_outputs)
-    Y = np.zeros([total_load,num_outputs],dtype=np.float32)          # but the final Y has to be flat (thanks Keras), not a grid
+    Y = np.zeros([total_load,num_outputs],dtype=dtype)          # but the final Y has to be flat (thanks Keras), not a grid
 
     for i in range(total_load):
         img_filename = img_file_list[i]
         txt_filename = txt_file_list[i]
         #if (i == 10739):
-        #    print(" i = ",i," img_filename = ",img_filename,", txt_filename = ",txt_filename)
+        if (0 == i % 1000):
+            print(" Reading in i = ",i," / ",total_load,": img_filename = ",img_filename,", txt_filename = ",txt_filename)
 
         img = load_img(img_filename)
         if (force_dim is not None):         # resize image if needed
@@ -241,7 +328,7 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
             X[i,:,:,:] = img[:,:,:]    # throw out the rgb and just keep greyscale
 
         # Y holds  [ xc, yc, rings (1-11), a, b, theta (0-180)], multiple times
-        true_arr = parse_txt_file(txt_filename, vars_per_pred=vars_per_pred)     # true_arr is a list of the true info on all antinodes in this file
+        true_arr = parse_txt_file(txt_filename)     # true_arr is a list of the true info on all antinodes in this file
         num_antinodes = int(round(len(true_arr)*1.0/vars_per_pred))              # number of antinodes in this particular file
 
         gridYi = true_to_pred_grid(true_arr, pred_shape, img_filename=img_filename)     # add true values to y according to which 'grid cell' they apply to
@@ -257,25 +344,30 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
     return X, Y, img_dims, img_file_list, pred_shape              # pred_shape tells how to un-flatten Y
 
 
-def parse_txt_file(txt_filename, vars_per_pred=6):
+def parse_txt_file(txt_filename):
     f = open(txt_filename, "r")
     lines = f.readlines()
     f.close()
 
     xmin = 99999
-    return_arr = np.zeros(vars_per_pred,dtype=np.float32).flatten()
     arrs = []
     for j in range(len(lines)):
         line = lines[j]   # grab a line
         line = line.translate({ord(c): None for c in '[] '})     # strip unwanted chars in unicode line
         string_vars = line.split(sep=',')
-
         vals = [float(numeric_string) for numeric_string in string_vars]
+        subarr = vals[0:vars_per_pred]     # the -1 is because 'existence' is implied, so the file doesn't include noobj flag
 
-        arrs.append(vals[0:vars_per_pred])
+        # Input format (from file) is [cx, cy, num_rings, a, b, angle]
+        #    But we'll change that to [cx, cy, a, b, angle, 0 (noobj=0, i.e. existence), num_rings] for ease of transition to classification
+        tmp_arr = subarr[:]  # clone the list
+        tmp_arr[2:5] = subarr[3:6]  # shift last three vars to the left
+        tmp_arr[5] = 0  # noobj = 0, i.e. object exists
+        tmp_arr = tmp_arr + [subarr[2]] # move num_rings to end
+
+        arrs.append(tmp_arr)
 
     arrs = sorted(arrs,key=itemgetter(0,1))     # sort by y first, then by x
-    #print("parse_txt_file: arrs = ",arrs)
-    #arrs = np.array(arrs,dtype=np.float32).flatten()
+
 
     return arrs
