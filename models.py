@@ -5,13 +5,13 @@ import numpy as np
 
 import keras
 from keras.models import Sequential, Model, load_model
-from keras.layers import Input, Dense, TimeDistributed, LSTM, Dropout, Activation
+from keras.layers import InputLayer, Input, Dense, Activation
 from keras.layers import Convolution2D, MaxPooling2D, Flatten, Conv2D
 from keras.layers.normalization import BatchNormalization
 from keras.applications import Xception, VGG16
 from keras.applications.inception_v3 import InceptionV3
 from keras.applications.inception_resnet_v2 import InceptionResNetV2
-from keras.applications.mobilenet import MobileNet
+from keras.applications.mobilenet import MobileNet, DepthwiseConv2D
 from keras.utils.generic_utils import CustomObjectScope
 from keras.applications.inception_v3 import preprocess_input
 from keras.layers.advanced_activations import ELU, PReLU, LeakyReLU
@@ -21,8 +21,134 @@ from os.path import isfile
 from utils import *
 from multi_gpu import *
 
+
+
+def space_to_depth_x2(x):
+    return tf.space_to_depth(x, block_size=2)
+
+
+def FullYOLO(X,Y): # after https://github.com/experiencor/basic-yolo-keras/blob/master/backend.py
+                # see Table 6 in YOLO9000 paper, https://arxiv.org/pdf/1612.08242.pdf
+    input_image = Input(shape=X[0].shape)
+
+    # the function to implement the orgnization layer (thanks to github.com/allanzelener/YAD2K)
+    def space_to_depth_x2(x):
+        return tf.space_to_depth(x, block_size=2)
+
+    def CBL_Block(inputs, nfeatures, kernel, num): # CBL = Conv/Batch/Leaky
+        x = Conv2D(nfeatures, kernel, strides=(1,1), padding='same', name='conv_'+str(num), use_bias=False)(inputs)
+        x = BatchNormalization(name='norm_'+str(num))(x)
+        x = LeakyReLU(alpha=0.1)(x)
+        return x
+
+    x = input_image
+    x = CBL_Block(x,  32, (3,3),  1)                # 384 x 384
+    x =    MaxPooling2D(pool_size=(2, 2))(x)        # 192 x 192
+    x = CBL_Block(x,  64, (3,3),  2)
+    x =    MaxPooling2D(pool_size=(2, 2))(x)        # 96 x 96
+
+    x = CBL_Block(x, 128, (3,3),  3)
+    x = CBL_Block(x,  64, (1,1),  4)
+    x = CBL_Block(x, 128, (3,3),  5)
+    x =    MaxPooling2D(pool_size=(2, 2))(x)        # 48 x 48
+
+    x = CBL_Block(x, 256, (3,3),  6)
+    x = CBL_Block(x, 128, (1,1),  7)
+    x = CBL_Block(x, 256, (3,3),  8)
+    x =    MaxPooling2D(pool_size=(2, 2))(x)       # 24 x 24
+
+    x = CBL_Block(x, 512, (3,3),  9)
+    x = CBL_Block(x, 256, (1,1), 10)
+    x = CBL_Block(x, 512, (3,3), 11)
+    x = CBL_Block(x, 256, (1,1), 12)
+    x = CBL_Block(x, 512, (3,3), 13)
+    x =    MaxPooling2D(pool_size=(2, 2))(x)       # 12 x 12
+
+    skip_connection = x                            # um... I don't see this in the paper
+
+    x = MaxPooling2D(pool_size=(2, 2))(x)          # 6 x 6
+
+    x = CBL_Block(x,1024, (3,3), 14)
+    x = CBL_Block(x, 512, (1,1), 15)
+    x = CBL_Block(x,1024, (3,3), 16)
+    x = CBL_Block(x, 512, (1,1), 17)
+    x = CBL_Block(x,1024, (3,3), 18)               # Last layer in Table 6 of YOLO9000
+    x = CBL_Block(x,1024, (3,3), 19)            # "We modify this network for detection by removing the last convolutional layer and instead
+    x = CBL_Block(x,1024, (3,3), 20)            # adding on three 3 × 3 convolutional layers with 1024 filters each followed by a final
+                                                # 1 × 1 convolutional layer with the number of outputs we need for detection.""
+
+
+    skip_connection = CBL_Block(skip_connection, 64, (1,1), 21)  # Layer 21
+    skip_connection = Lambda(space_to_depth_x2)(skip_connection)
+
+    x = concatenate([skip_connection, x])
+
+    #x = CBL_Block(x,1024, (3,3), 22)     # Layer 22
+    x = CBL_Block(x, 16, (3,3), 22)     # my Layer 22
+    x = MaxPooling2D(pool_size=(2, 2))(x)
+
+    x = Flatten()(x)
+    predictions = x
+
+    model = Model(inputs=input_image, outputs=predictions)
+    return model
+
+
+
+def MyYOLONet(X,Y):
+    kernel_size = (3, 3)  # convolution kernel size
+    pool_size = (2, 2)  # size of pooling area for max pooling
+    nfilters = 32
+
+    nlayers1 = 4
+    nlayers2 = 3
+    inputs = Input(shape=X[0].shape)
+
+    x = Conv2D(nfilters, kernel_size, strides=(1,1), padding='same', use_bias=False)(inputs)
+    x = BatchNormalization()(x)
+    x = LeakyReLU(alpha=0.1)(x)
+    x = MaxPooling2D(pool_size=pool_size)(x)
+
+    for n in range(nlayers1-1):
+        x = Conv2D(nfilters, kernel_size, strides=(1,1), padding='same', use_bias=False)(x)
+        x = BatchNormalization()(x)
+        x = LeakyReLU(alpha=0.1)(x)
+        x = MaxPooling2D(pool_size=pool_size)(x)
+
+    skip_connection = x
+
+    for n in range(nlayers2):
+        x = Conv2D(nfilters*2, (1,1), strides=(1,1), padding='same', use_bias=False)(x)
+        x = BatchNormalization(axis=1)(x)
+        x = LeakyReLU(alpha=0.1)(x)
+
+    skip_connection = Conv2D(32, (1,1), strides=(1,1), padding='same', use_bias=False)(skip_connection)
+    skip_connection = BatchNormalization()(skip_connection)
+    skip_connection = LeakyReLU(alpha=0.1)(skip_connection)
+    skip_connection = DepthwiseConv2D((1,1))(skip_connection)
+    #skip_connection = Lambda(space_to_depth_x2)(skip_connection)
+    x = concatenate([skip_connection, x])
+
+    x = Conv2D(nfilters, kernel_size, strides=(1,1), padding='same', use_bias=False)(x)
+    x = BatchNormalization()(x)
+    x = LeakyReLU(alpha=0.1)(x)
+    x = MaxPooling2D(pool_size=pool_size)(x)
+
+    x = Conv2D(16, (1,1), strides=(1,1), padding='same', use_bias=False)(x)
+    x = MaxPooling2D(pool_size=pool_size)(x)
+
+    x = Flatten()(x)
+    predictions = x# #= Dense(Y[0].size,name='FinalOutput')(x)
+
+    model = Model(inputs=inputs, outputs = predictions)
+    return model
+
+
 def instantiate_model(X, Y, freeze_fac=1.0):
     # Pick a pre-trained model, but leave the "top" off.
+
+    model = FullYOLO(X,Y)
+    return model
 
     input_tensor = Input(shape=X[0].shape)
     weights = None#'imagenet'    # None or 'imagenet'    If you want to use imagenet, X[0].shape[2] must = 3
@@ -35,7 +161,7 @@ def instantiate_model(X, Y, freeze_fac=1.0):
 
     top_model = Sequential()        # top_model gets tacked on to pretrained model
     top_model.add(Flatten(input_shape=base_model.output_shape[1:]))
-    top_model.add(Dense(Y[0].size,name='FinalOutput'))      # Final output layer
+    #top_model.add(Dense(Y[0].size,name='FinalOutput'))      # Final output layer
 
     #top_model.load_weights('bootlneck_fc_model.h5')
     model = Model(inputs= base_model.input, outputs= top_model(base_model.output))
@@ -104,9 +230,9 @@ def unfreeze_model(model, X, Y, freeze_fac=0.0, parallel=True):
 
 lambda_center = 1.0
 lambda_size = 1.0
-lambda_angle = 30.0
-lambda_noobj = 0.3
-lambda_class = 10.0
+lambda_angle = 15.0
+lambda_noobj = 0.5
+lambda_class = 5.0
 
 def custom_loss(y_true, y_pred):  # it's just MSE but the angle term is weighted by (a-b)^2
     print("custom_loss function engaged!")
@@ -116,7 +242,7 @@ def custom_loss(y_true, y_pred):  # it's just MSE but the angle term is weighted
     loss = lambda_center * ( K.sum(pobj* sqerr[:,ind_cx::vars_per_pred],     axis=-1) + K.sum(pobj* sqerr[:,ind_cy:-1:vars_per_pred], axis=-1))
     loss += lambda_size  * ( K.sum(pobj* sqerr[:,ind_semi_a::vars_per_pred], axis=-1) + K.sum(pobj* sqerr[:,ind_semi_b:-1:vars_per_pred], axis=-1))
     abdiff = y_true[:, ind_semi_a::vars_per_pred] - y_true[:, ind_semi_b:-1:vars_per_pred]
-    loss += lambda_angle * K.sum(pobj* sqerr[:, ind_angle::vars_per_pred] * K.square(abdiff) , axis=-1)
+    loss += lambda_angle * ( K.sum(pobj* sqerr[:, ind_angle1::vars_per_pred] * K.square(abdiff) , axis=-1) + K.sum(pobj* sqerr[:, ind_angle2::vars_per_pred] * K.square(abdiff), axis=-1))
     loss += lambda_noobj * K.sum(sqerr[:, ind_noobj::vars_per_pred], axis=-1)
     loss += lambda_class * K.sum( pobj * sqerr[:, ind_rings::vars_per_pred], axis=-1)
 
@@ -126,27 +252,28 @@ def custom_loss(y_true, y_pred):  # it's just MSE but the angle term is weighted
     return K.mean(loss)
 
 
-def my_loss(y_true, y_pred):  # same as custom_loss but via numpy for easier diagnostics; inputs should be numpy arrays, not Tensors
+def my_loss(y_true, y_pred):  # diagnostic.  same as custom_loss but via numpy; inputs should be numpy arrays, not Tensors
     y_shape = y_pred.shape
-    print("    my_loss: y_shape = ",y_shape)
+    #print("    my_loss: y_shape = ",y_shape)
     sqerr = (y_true - y_pred)**2   # loss is 'built on' squared error
     pobj = 1 - y_true[:, ind_noobj::vars_per_pred]   # probability of object", i.e. existence.  if no object, then we don't care about the rest of the variables
 
     center_loss = lambda_center * (np.sum(pobj* sqerr[:,ind_cx::vars_per_pred],     axis=-1) + np.sum(pobj* sqerr[:,ind_cy::vars_per_pred], axis=-1))
     size_loss   = lambda_size  * ( np.sum(pobj* sqerr[:,ind_semi_a::vars_per_pred], axis=-1) + np.sum(pobj* sqerr[:,ind_semi_b::vars_per_pred], axis=-1))
     abdiff = y_true[:, ind_semi_a::vars_per_pred] - y_true[:, ind_semi_b::vars_per_pred]
-    angle_loss  = lambda_angle * np.sum(pobj * sqerr[:, ind_angle::vars_per_pred] * (abdiff**2) , axis=-1)
+    angle_loss  = lambda_angle * ( np.sum(pobj * sqerr[:, ind_angle1::vars_per_pred] * (abdiff**2) , axis=-1) + np.sum(pobj * sqerr[:, ind_angle2::vars_per_pred] * (abdiff**2) , axis=-1) )
     noobj_loss  = lambda_noobj * np.sum(sqerr[:, ind_noobj::vars_per_pred], axis=-1)
     class_loss  = lambda_class * np.sum(pobj * sqerr[:, ind_rings::vars_per_pred], axis=-1)
 
     losses = np.array([center_loss, size_loss, angle_loss, noobj_loss, class_loss])
     losses = np.mean(losses,axis=-1)
-    big_ind = np.argmax(losses)
 
-    print("    my_loss: by class: [   center,        size,          angle,           noobj,          class]")
-    print("              losses =",losses,", ind of biggest =",big_ind)
-    loss = np.sum(losses)
-    # take average
     ncols = y_pred.shape[-1]
-    loss /= ncols
+    losses /= ncols            # take average
+    ind_max = np.argmax(losses)
+
+    print("    my_loss: [   center,        size,      angle,     noobj,      class ]")
+    print("    losses =",losses,", ind_max =",ind_max)
+    #print("              losses = [{:>8.4g}, {:>8.4g}, {:>8.4g}, {:>8.4g}, {:>8.4g}]".format(losses),", ind of biggest =",big_ind)
+    loss = np.sum(losses)
     return loss

@@ -17,20 +17,21 @@ dtype = np.float32
 # Define some colors: openCV uses BGR instead of RGB
 blue = (255,0,0)
 red = (0,0,255)
-green = (0,255,0)
-white = (255)
-black = (0)
-grey = (128)
+green = (0,200,0)
+white = (255, 255, 255)
+black = (0, 0, 0)
+grey = (128, 128, 128)
 
 # define indices for different parts of the data stream
-vars_per_pred = 7
+vars_per_pred = 8
 ind_cx = 0
 ind_cy = 1
 ind_semi_a = 2
 ind_semi_b = 3
-ind_angle = 4
-ind_noobj = 5
-ind_rings = 6
+ind_angle1 = 4          # cos(2*theta)
+ind_angle2 = 5          # sin(2*theta)
+ind_noobj = 6
+ind_rings = 7
 
 
 
@@ -56,11 +57,12 @@ def draw_ellipse(
 
 
 # draws a bunch of sample output files showing where ellipses are on images
-def show_pred_ellipses(Yt, Yp, file_list, num_draw=30, log_dir='./logs/', ind_extra=None):
+def show_pred_ellipses(Yt, Yp, file_list, num_draw=40, log_dir='./logs/', ind_extra=None):
     # Yt & Yp are already de-normed.  Yt = true,  Yp= predict
     m = Yt.shape[0]
     num_draw = min(num_draw,m)
 
+    print("  format for drawing: [cx,     cy,    rings,     a,     b,      angle]")
     j = 0
     for count in range(num_draw+1):
         j = j + 1
@@ -70,7 +72,6 @@ def show_pred_ellipses(Yt, Yp, file_list, num_draw=30, log_dir='./logs/', ind_ex
 
         out_filename = log_dir+'/steelpan_pred_'+str(j).zfill(5)+'.png'
         print("    Drawing on image",count,"of",num_draw,":",in_filename,", writing to",out_filename)
-
         img = load_img(in_filename)                 # this is a PIL image
         img_dims = img_to_array(img).shape
 
@@ -80,26 +81,33 @@ def show_pred_ellipses(Yt, Yp, file_list, num_draw=30, log_dir='./logs/', ind_ex
         max_pred_antinodes = int(Yt[0].size / vars_per_pred)
         for an in range(max_pred_antinodes):    # count through all antinodes
 
-            [cx, cy, a, b, angle, noobj, rings] = Yt[j,an*vars_per_pred:(an+1)*vars_per_pred]   # ellipse for Testing
+            [cx, cy, a, b, cos2t, sin2t, noobj, rings] = Yt[j,an*vars_per_pred:(an+1)*vars_per_pred]   # ellipse for Testing
             cx, cy,  a, b, noobj, rings = int(round(cx)), int(round(cy)),  int(round(a)), int(round(b)), int(round(noobj)), int(round(rings)) # OpenCV wants ints or it barfs
+            angle = np.rad2deg( np.arctan2(sin2t,cos2t)/2.0 )
+            if (angle < 0):
+                angle += 180
 
-
-            if (an==0):
-                print("       True:   {: >5d}, {: >5d},  {: >3d},  {: >5d}, {: >5d},   {: >6.2f}".format(cx, cy, rings, a, b, angle))
+            if ((an < 6) and (noobj==0)):
+                print("       True:   {: >4d}, {: >4d},  {: >4d}, {: >4d},   {: >6.2f},  {: >2d}, {: >4d}".format(cx, cy, a, b, angle, noobj, rings))
             if (noobj < 0.5) and (rings > 0) and (a>=0) and (b>=0):  # only draw if you should and if you can
-                draw_ellipse(img, [cx, cy], [a,b], angle, color=red, thickness=1)
-                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy+2), cv2.FONT_HERSHEY_TRIPLEX, 0.85, black, lineType=cv2.LINE_AA);  # add a little outline for readibility
-                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy), cv2.FONT_HERSHEY_TRIPLEX, 0.75, red, lineType=cv2.LINE_AA);
+                draw_ellipse(img, [cx, cy], [a,b], angle, color=red, thickness=2)
+                #cv2.putText(img, "{: >2d}".format(rings), (cx-13,cy), cv2.FONT_HERSHEY_TRIPLEX, 0.95, grey, lineType=cv2.LINE_AA);  # add a little outline for readibility
+                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy+2), cv2.FONT_HERSHEY_TRIPLEX, 0.95, black, lineType=cv2.LINE_AA);  # add a little outline for readibility
+                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy), cv2.FONT_HERSHEY_TRIPLEX, 0.85, red, lineType=cv2.LINE_AA);
 
-            [cx, cy, a, b, angle, noobj, rings] = Yp[j,an*vars_per_pred:(an+1)*vars_per_pred]   # ellipse for Prediction
+            [cx, cy, a, b, cos2t, sin2t, noobj, rings] = Yp[j,an*vars_per_pred:(an+1)*vars_per_pred]   # ellipse for Prediction
             cx, cy,  a, b, noobj, rings = int(round(cx)), int(round(cy)),  int(round(a)), int(round(b)), int(round(noobj)), int(round(rings)) # OpenCV wants ints or it barfs
+            angle = np.rad2deg( np.arctan2(sin2t,cos2t)/2.0 )
+            if (angle < 0):
+                angle += 180
 
-            if (an==0):
-                print("       Pred:   {: >5d}, {: >5d},  {: >3d},  {: >5d}, {: >5d},   {: >6.2f}".format(cx, cy, rings, a, b, angle))
+            if ((an < 6) and (noobj==0)):
+                print("       Pred:   {: >4d}, {: >4d},  {: >4d}, {: >4d},   {: >6.2f},  {: >2d}, {: >4d}".format(cx, cy, a, b, angle, noobj, rings))
             if (noobj < 0.5) and (rings > 0) and (a>=0) and (b>=0):  # only draw if you should and if you can
-                draw_ellipse(img, [cx, cy], [a,b], angle, color=green, thickness=1)
-                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy+27), cv2.FONT_HERSHEY_TRIPLEX, 0.85, black, lineType=cv2.LINE_AA);     # dark outline
-                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy+25), cv2.FONT_HERSHEY_TRIPLEX, 0.75, green, lineType=cv2.LINE_AA);
+                draw_ellipse(img, [cx, cy], [a,b], angle, color=green, thickness=2)
+                #cv2.putText(img, "{: >2d}".format(rings), (cx-13,cy+27), cv2.FONT_HERSHEY_TRIPLEX, 0.95, grey, lineType=cv2.LINE_AA);     # white outline
+                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy+29), cv2.FONT_HERSHEY_TRIPLEX, 0.95, black, lineType=cv2.LINE_AA);     # dark outline
+                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy+27), cv2.FONT_HERSHEY_TRIPLEX, 0.85, green, lineType=cv2.LINE_AA);
 
         cv2.imwrite(out_filename,img)           # save output image
 
@@ -109,34 +117,6 @@ def iou_score(ell_1, ell_2):  # compute intersection-over-union for two rotated 
     # for now: ingore rotation, and treat ellipses as boxes
     # TODO: come back and fix this
     return
-
-
-
-def custom_loss_old(y_true, y_pred):
-    # first sum up the squared error column-wise
-    sqerr = K.square(y_true - y_pred)
-    loss = K.sum(sqerr, axis=-1)
-
-    # subtract the loss for the sliced part
-    loss -= K.sum(sqerr[:, 4:-1:7], axis=-1)
-
-    # add back the adjusted loss for the sliced part
-    numerator = y_true[:, 2:-1:7] - y_true[:, 3:-1:7]
-    loss += K.sum(sqerr[:, 4:-1:7] * K.square(numerator ), axis=-1)
-
-    # take average
-    ncols = K.int_shape(y_pred)[-1]
-    loss /= ncols
-    return K.mean(loss)
-
-
-
-def my_loss_old(y_true, y_pred): # The following is only suitable for numpy arrays, not for Keras/TF/Theano tensors
-    # This is MSE but the angle is term is specially weighted:
-    #     multiply angle by a-b  (so angle matters less for circles)  use a & b from true
-    sqerr = (y_true-y_pred)**2
-    sqerr[:,ind_angle:-1:vars_per_pred] *= (y_true[:,ind_semi_a:-1:vars_per_pred] - y_true[:,ind_semi_b:-1:vars_per_pred])**2
-    return sqerr.mean()
 
 
 orig_img_dims=[512,384]
@@ -193,10 +173,10 @@ def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None): 
         for j in range(pred_shape[1]):
             grid_cx = i*xbinsize + xbinsize/2
             grid_cy = j*ybinsize + ybinsize/2
-            #           format: [cx,         cy,           a,              b,        angle,  noobj,  num_rings]   noobj = 0/1 flag for background
-            gridmeans[i,j] =    [grid_cx,    grid_cy,   xbinsize/2,    ybinsize/2,    90.0,   0.5,    5] # + [0]*(num_classes+1)
-            gridranges[i,j] =   [xbinsize,  ybinsize,   xbinsize,      ybinsize,     180.0,     1,   10] #+ [1]*(num_classes+1)
-            griddefaults[i,j] = [grid_cx,    grid_cy,   xbinsize/2,    ybinsize/2,    90.0,     1,    0] # default is noobj=1, rings=0
+            #           format: [cx,         cy,           a,              b,     cos2theta, sin2theta,  noobj,  num_rings]   noobj = 0/1 flag for background
+            griddefaults[i,j] = [grid_cx,    grid_cy,   xbinsize/2,    ybinsize/2,      -1,      0,         1,    0] # default is noobj=1, rings=0, angle is 90 degrees
+            gridmeans[i,j] =    [grid_cx,    grid_cy,   xbinsize/2,    ybinsize/2,       0,      0,       0.5,    5] # + [0]*(num_classes+1)
+            gridranges[i,j] =   [xbinsize,  ybinsize,   xbinsize,      ybinsize,         2,      2,         1,   10] #+ [1]*(num_classes+1)
 
     gridYi = np.copy(griddefaults)              # initialize a single grid-Y output with default values
 
@@ -229,7 +209,7 @@ def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None): 
 
 
 # builds the Training or Test data set
-def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscale=False, force_dim=224, pred_grid=[5,5,3]):
+def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscale=False, force_dim=384, pred_grid=[6,6,2]):
     global means, ranges
 
     img_file_list = sorted(glob.glob(path+'steelpan*.bmp'))
@@ -304,55 +284,6 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
 
     return X, Y, img_dims, img_file_list, pred_shape              # pred_shape tells how to un-flatten Y
 
-lambda_center = 1.0
-lambda_size = 1.0
-lambda_angle = 30.0
-lambda_noobj = 0.3
-lambda_class = 10.0
-
-def custom_loss(y_true, y_pred):  # it's just MSE but the angle term is weighted by (a-b)^2
-    print("custom_loss function engaged!")
-    sqerr = K.square(y_true - y_pred)   # loss is 'built on' squared error
-    pobj = 1 - y_true[:, ind_noobj::vars_per_pred]   # probability of object", i.e. existence.  if no object, then we don't care about the rest of the variables
-
-    loss = lambda_center * ( K.sum(pobj* sqerr[:,ind_cx::vars_per_pred],     axis=-1) + K.sum(pobj* sqerr[:,ind_cy:-1:vars_per_pred], axis=-1))
-    loss += lambda_size  * ( K.sum(pobj* sqerr[:,ind_semi_a::vars_per_pred], axis=-1) + K.sum(pobj* sqerr[:,ind_semi_b:-1:vars_per_pred], axis=-1))
-    abdiff = y_true[:, ind_semi_a::vars_per_pred] - y_true[:, ind_semi_b:-1:vars_per_pred]
-    loss += lambda_angle * K.sum(pobj* sqerr[:, ind_angle::vars_per_pred] * K.square(abdiff) , axis=-1)
-    loss += lambda_noobj * K.sum(sqerr[:, ind_noobj::vars_per_pred], axis=-1)
-    loss += lambda_class * K.sum( pobj * sqerr[:, ind_rings::vars_per_pred], axis=-1)
-
-    # take average
-    ncols = K.int_shape(y_pred)[-1]
-    loss /= ncols
-    return K.mean(loss)
-
-
-def my_loss(y_true, y_pred):  # same as custom_loss but via numpy for easier diagnostics; inputs should be numpy arrays, not Tensors
-    y_shape = y_pred.shape
-    print("    my_loss: y_shape = ",y_shape)
-    sqerr = (y_true - y_pred)**2   # loss is 'built on' squared error
-    pobj = 1 - y_true[:, ind_noobj::vars_per_pred]   # probability of object", i.e. existence.  if no object, then we don't care about the rest of the variables
-
-    center_loss = lambda_center * (np.sum(pobj* sqerr[:,ind_cx::vars_per_pred],     axis=-1) + np.sum(pobj* sqerr[:,ind_cy::vars_per_pred], axis=-1))
-    size_loss   = lambda_size  * ( np.sum(pobj* sqerr[:,ind_semi_a::vars_per_pred], axis=-1) + np.sum(pobj* sqerr[:,ind_semi_b::vars_per_pred], axis=-1))
-    abdiff = y_true[:, ind_semi_a::vars_per_pred] - y_true[:, ind_semi_b::vars_per_pred]
-    angle_loss  = lambda_angle * np.sum(pobj * sqerr[:, ind_angle::vars_per_pred] * (abdiff**2) , axis=-1)
-    noobj_loss  = lambda_noobj * np.sum(sqerr[:, ind_noobj::vars_per_pred], axis=-1)
-    class_loss  = lambda_class * np.sum(pobj * sqerr[:, ind_rings::vars_per_pred], axis=-1)
-
-    losses = np.array([center_loss, size_loss, angle_loss, noobj_loss, class_loss])
-    losses = np.mean(losses,axis=-1)
-    big_ind = np.argmax(losses)
-
-    print("    my_loss: by class: [   center,        size,          angle,           noobj,          class]")
-    print("              losses =",losses,", ind of biggest =",big_ind)
-    loss = np.sum(losses)
-    # take average
-    ncols = y_pred.shape[-1]
-    loss /= ncols
-    return loss
-
 
 
 def parse_txt_file(txt_filename):
@@ -370,11 +301,13 @@ def parse_txt_file(txt_filename):
         subarr = vals[0:vars_per_pred]  # note vars_per_pred includes a slot for no-object, but numpy slicing convention means subarr will be vars_per_pred-1 elements long
 
         # Input format (from file) is [cx, cy, num_rings, a, b, angle]
-        #    But we'll change that to [cx, cy, a, b, angle, 0 (noobj=0, i.e. existence), num_rings] for ease of transition to classification
-        tmp_arr = subarr[:]  # clone the list
-        tmp_arr[2:5] = subarr[3:6]  # shift last three vars to the left
-        tmp_arr[ind_noobj] = 0  # noobj = 0, i.e. object exists
-        tmp_arr = tmp_arr + [subarr[2]] # move num_rings to end
+        #    But we'll change that to [cx, cy, a, b, cos(2*angle), sin(2*angle), 0 (noobj=0, i.e. existence), num_rings] for ease of transition to classification
+        [cx, cy, num_rings, a, b, angle] = subarr
+        tmp_arr = [cx, cy, a, b, np.cos(2*np.deg2rad(angle)), np.sin(2*np.deg2rad(angle)), 0, num_rings]
+        #tmp_arr = subarr[:]  # clone the list
+        #tmp_arr[2:5] = subarr[3:6]  # shift last three vars to the left
+        #tmp_arr[ind_noobj] = 0  # noobj = 0, i.e. object exists
+        #tmp_arr = tmp_arr + [subarr[2]] # move num_rings to end
 
         arrs.append(tmp_arr)
 

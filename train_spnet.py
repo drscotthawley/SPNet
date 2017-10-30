@@ -121,10 +121,10 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             # Plot centroids
             num_plot = 40                           # number of images to plot centroids for
             ax = plt.subplot(121, autoscale_on=False, aspect=orig_img_dims[0]*1.0/orig_img_dims[1], xlim=[0,orig_img_dims[0]], ylim=[0,orig_img_dims[1]])
-            for k in range( int(Yt.shape[1]/vars_per_pred)):
-                ind = ind_cx + k * vars_per_pred
+            for an in range( int(Yt.shape[1]/vars_per_pred)):
+                ind = ind_cx + an * vars_per_pred
                 # let's not plot non-objects
-                if (0==k):
+                if (0==an):
                     ax.plot(Yt[0:num_plot,ind],Yt[0:num_plot,ind+1],'ro', label="Expected")
                     ax.plot(Yp[0:num_plot,ind],Yp[0:num_plot,ind+1],'go', label="Predicted")
                 else:
@@ -163,7 +163,7 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
                 self.writer.add_summary(summary, step)
                 #writer.close()
 
-            show_pred_ellipses(Yt, Yp, val_file_list, num_draw=30, log_dir=self.log_dir, ind_extra=ipem)
+            show_pred_ellipses(Yt, Yp, val_file_list, log_dir=self.log_dir, ind_extra=ipem)
 
             # Print additional diagnostics
             print("    In whole val dataset:")
@@ -187,7 +187,8 @@ def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0):
     X_val, Y_val, img_dims, val_file_list, pred_shape  = build_dataset(path=valpath, load_frac=fraction, set_means_ranges=False)
 
     print("Instantiating model...")
-    model = setup_model(X_train, Y_train, no_cp_fatal=False, weights_file=weights_file)
+    parallel=True
+    model = setup_model(X_train, Y_train, no_cp_fatal=False, weights_file=weights_file, parallel=parallel)
 
     # Params for training: batch size, ....
     batch_size = 20 #20 for large images    # greater batch size runs faster but may yield Out Of Memory errors
@@ -209,7 +210,7 @@ def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0):
     # early training with partially-frozen pre-trained model
     model.fit(X_train, Y_train, batch_size=batch_size, epochs=frozen_epochs, shuffle=True,
               verbose=1, validation_data=(X_val, Y_val), callbacks=[checkpointer,earlystopping,tensorboard,myprogress])
-    model = unfreeze_model(model, X_train, Y_train)
+    model = unfreeze_model(model, X_train, Y_train, parallel=parallel)
 
     # main training block
     model.fit(X_train, Y_train, batch_size=batch_size, epochs=later_epochs, shuffle=True,
