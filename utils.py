@@ -151,6 +151,9 @@ def eval_classifier(one_hot_pred):   # one_hot_pred includes [ confidence of 0 r
     # So all we're left with, then, is...
     return np.argmax(one_hot_pred)   # returns an integer, where 0 denotes nothing there
 
+def set_Y_norms(Y, pred_shape):
+    return
+
 
 def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None):    # the essence of the YOLO-style approach
                                     # this takes our 'true' antinode info, and assigns it across the 'grid' of predictors, i.e. YOLO-style
@@ -161,9 +164,19 @@ def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None): 
     #   ... 17 variables in all
     global means, ranges
 
-    true_arr = np.array(true_arr, dtype=dtype)   # convert from list to array
+    #true_arr = np.array(true_arr, dtype=dtype)   # convert from list to array
+    #cx_min, cx_max = np.min(true_arr[:,ind_cx::vars_per_pred]), np.max(true_arr[:,ind_cx::vars_per_pred])
+    #cy_min, cy_max = np.max(true_arr[:,ind_cy::vars_per_pred]), np.max(true_arr[:,ind_cy::vars_per_pred])
+    #xbinsize = int( (cx_max - cx_min) / pred_shape[0])
+    #ybinsize = int( (cy_max - cy_min) / pred_shape[1])
+    #print("true_arr = ",true_arr)
+    #print("  cx_min, cx_max = ",cx_min, cx_max)
+    #print("  cy_min, cy_max = ",cy_min, cy_max)
+
     xbinsize = int(orig_img_dims[0] / pred_shape[0])
     ybinsize = int(orig_img_dims[1] / pred_shape[1])
+    cx_min = xbinsize / 2
+    cy_min = ybinsize / 2
 
     # Also, set up the means & ranges for normalization, according to the grid of predictors
     gridmeans = np.zeros(pred_shape,dtype=dtype)
@@ -171,8 +184,8 @@ def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None): 
     griddefaults = np.zeros(pred_shape,dtype=dtype)
     for i in range(pred_shape[0]):
         for j in range(pred_shape[1]):
-            grid_cx = i*xbinsize + xbinsize/2
-            grid_cy = j*ybinsize + ybinsize/2
+            grid_cx = i*xbinsize + cx_min
+            grid_cy = j*ybinsize + cy_min
             #           format: [cx,         cy,           a,              b,     cos2theta, sin2theta,  noobj,  num_rings]   noobj = 0/1 flag for background
             griddefaults[i,j] = [grid_cx,    grid_cy,   xbinsize/2,    ybinsize/2,      -1,      0,         1,    0] # default is noobj=1, rings=0, angle is 90 degrees
             gridmeans[i,j] =    [grid_cx,    grid_cy,   xbinsize/2,    ybinsize/2,       0,      0,       0.5,    5] # + [0]*(num_classes+1)
@@ -207,9 +220,16 @@ def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None): 
     return gridYi
 
 
+def add_to_stack(a,b):  # makes a vertical stack of 1-d arrays
+    if (a is None):
+        return b[None,:]
+    if (a.ndim ==1):
+        a = np.copy( a[None,:])
+    return np.concatenate((a,b[None,:]))
+
 
 # builds the Training or Test data set
-def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscale=False, force_dim=384, pred_grid=[6,6,2]):
+def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscale=False, force_dim=224, pred_grid=[6,6,2]):
     global means, ranges
 
     img_file_list = sorted(glob.glob(path+'steelpan*.bmp'))
@@ -247,7 +267,8 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
     #print("pred_shape, num_outputs = ",pred_shape,num_outputs)
     Y = np.zeros([total_load,num_outputs],dtype=dtype)          # but the final Y has to be flat (thanks Keras), not a grid
 
-    for i in range(total_load):
+    true_stack = None                            # array stack to hold true info, to convert into Y
+    for i in range(total_load):                 # read all true info from disk into arrays
         img_filename = img_file_list[i]
         txt_filename = txt_file_list[i]
         #if (i == 10739):
@@ -268,17 +289,23 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
         else:
             X[i,:,:,:] = img[:,:,:]    # throw out the rgb and just keep greyscale
 
-        # Y holds  [ xc, yc, rings (1-11), a, b, theta (0-180)], multiple times
-        true_arr = parse_txt_file(txt_filename)     # true_arr is a list of the true info on all antinodes in this file
-        num_antinodes = int(round(len(true_arr)*1.0/vars_per_pred))              # number of antinodes in this particular file
+        # one_true_arr holds  [ xc, yc, rings (1-11), a, b, theta (0-180)], multiple times
+        one_true_arr = np.array(parse_txt_file(txt_filename))     # one_true_arr is a list of the true info on all antinodes in this particular file
+        # add to the stack
+        true_stack = add_to_stack(true_stack, one_true_arr)
 
-        gridYi = true_to_pred_grid(true_arr, pred_shape, img_filename=img_filename)     # add true values to y according to which 'grid cell' they apply to
+    # ------- All data has been read from disk at this point ------
+
+    if (set_means_ranges):    # do some analysis on the dataset, e.g. set predictor default locations on grid
+        pass
+
+    for i in range(total_load):                         # Divvy up all true values to grid of predictors
+        gridYi = true_to_pred_grid(true_stack[i], pred_shape, img_filename=img_file_list[i])     # add true values to y according to which 'grid cell' they apply to
 
         # Keras wants our output Y to be flat
         Y[i,:] = gridYi.flatten()
 
-        #if (i==0):
-        #    print("       Y[0] = ",Y[0])
+    # Now that Y is fully read-in and flattened, do some operations on it...
 
     Y = norm_Y(Y, set_means_ranges=set_means_ranges)  # after all parts of Y are assigned, normalize
 

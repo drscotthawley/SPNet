@@ -147,8 +147,8 @@ def MyYOLONet(X,Y):
 def instantiate_model(X, Y, freeze_fac=1.0):
     # Pick a pre-trained model, but leave the "top" off.
 
-    model = FullYOLO(X,Y)
-    return model
+    #model = FullYOLO(X,Y)
+    #return model
 
     input_tensor = Input(shape=X[0].shape)
     weights = None#'imagenet'    # None or 'imagenet'    If you want to use imagenet, X[0].shape[2] must = 3
@@ -161,7 +161,7 @@ def instantiate_model(X, Y, freeze_fac=1.0):
 
     top_model = Sequential()        # top_model gets tacked on to pretrained model
     top_model.add(Flatten(input_shape=base_model.output_shape[1:]))
-    #top_model.add(Dense(Y[0].size,name='FinalOutput'))      # Final output layer
+    top_model.add(Dense(Y[0].size,name='FinalOutput'))      # Final output layer
 
     #top_model.load_weights('bootlneck_fc_model.h5')
     model = Model(inputs= base_model.input, outputs= top_model(base_model.output))
