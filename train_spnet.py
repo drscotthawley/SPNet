@@ -15,6 +15,7 @@ import PIL
 import io
 from models import *
 from utils import *
+from scipy.optimize import curve_fit
 
 
 def calc_errors(Yp, Yt):  #index = 2 is where the ring count is stored.
@@ -44,12 +45,17 @@ def calc_errors(Yp, Yt):  #index = 2 is where the ring count is stored.
     return miscounts, total_obj, pix_err, ipem
 
 
+def acc_extrap_func(x, a, b, c):  # extrapolation function for accuracy
+    return a + b * (1- np.exp(-c * x))
+
+
 # Custom callbacks
 
 hist = []
 train_loss_hist = []
 val_loss_hist = []
 my_val_loss_hist = []
+acc_hist = []
 
 global_count = 0                	       # global_count is handy when nb_epoch = 1
 n_epochs_per_plot = 1
@@ -72,6 +78,7 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
         train_loss_hist = []
         val_loss_hist = []
         my_val_loss_hist = []
+        acc_hist = []
 
         if (self.use_tb):
             self.sess = K.get_session()
@@ -112,15 +119,16 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             # A few metrics
             ring_miscounts, total_obj, pix_err, ipem = calc_errors(Yp, Yt)
             class_acc = (total_obj-ring_miscounts)*1.0/total_obj*100
+            acc_hist.append( class_acc )
 
             # Plot Progress:  Centroids & History
             orig_img_dims=[512,384]
-            self.fig = plt.figure(figsize=(10, 4))
+            self.fig = plt.figure(figsize=(14, 3.75))
             self.fig.clf()
 
             # Plot centroids
-            num_plot = 40                           # number of images to plot centroids for
-            ax = plt.subplot(121, autoscale_on=False, aspect=orig_img_dims[0]*1.0/orig_img_dims[1], xlim=[0,orig_img_dims[0]], ylim=[0,orig_img_dims[1]])
+            num_plot = 45                           # number of images to plot centroids for
+            ax = plt.subplot(131, autoscale_on=False, aspect=orig_img_dims[0]*1.0/orig_img_dims[1], xlim=[0,orig_img_dims[0]], ylim=[0,orig_img_dims[1]])
             for an in range( int(Yt.shape[1]/vars_per_pred)):
                 ind = ind_cx + an * vars_per_pred
                 # let's not plot non-objects
@@ -137,16 +145,28 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             if not ([] == val_loss_hist):
                 ymin = np.min(train_loss_hist + val_loss_hist)
                 ymax = np.max(train_loss_hist + val_loss_hist)
-                ax = plt.subplot(122, ylim=[np.min((ymin,0.01)),np.min((ymax,0.1))])    # cut the top off at 0.1 if necessary, so we can better see low-error features
+                ax = plt.subplot(132, ylim=[np.min((ymin,0.01)),np.min((ymax,0.1))])    # cut the top off at 0.1 if necessary, so we can better see low-error features
                 ax.semilogy(hist, train_loss_hist,'b-',label="Train")
                 ax.semilogy(hist, val_loss_hist,'r-',label="Val")
-                #ax.semilogy(hist, my_val_loss_hist,'m-',label="my Val")
-
                 ax.set_xlabel('(Global) Epoch')
                 ax.set_ylabel('Loss')
                 ax.set_title('class accuracy = {:5.2f} %'.format(class_acc))
                 ax.legend(loc='upper right', fancybox=True, framealpha=0.8)
-                plt.xlim(xmin=0)
+                plt.xlim(xmin=1)
+
+                # plot accuracy history
+                ax = plt.subplot(133, ylim=[0,np.max(acc_hist)])
+                ax.plot(hist, acc_hist,'-',color='orange')
+                ax.set_xlabel('(Global) Epoch')
+                ax.set_ylabel('Class Accuracy (%)')
+                if (len(acc_hist) > 25):
+                    start_at = 10    # ignore everything before a certain epoch
+                    popt, pcov = curve_fit(acc_extrap_func, hist[start_at:], acc_hist[start_at:])
+                    ax.plot(hist, acc_extrap_func(hist, *popt), 'c--', label="Fitted Curve")
+                    ax.set_title("Extrapolation:  "+str(popt[0]+popt[1])+"%")
+
+                #ax.set_title('class accuracy = {:5.2f} %'.format(class_acc))
+                plt.xlim(xmin=1)
 
 
             if not self.use_tb:         # Write image to ordinary file
@@ -172,7 +192,7 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             #print("              Y_pred =",Y_pred[ipem])
             #print("              Y_val =",Y_val[ipem])
             print("        Num ring miscounts = ",ring_miscounts,' / ',total_obj,'.   = ',class_acc,' % class. accuracy',sep="")
-            print("                                                                  my_val_loss:",my_val_loss)
+            #print("                                                                  my_val_loss:",my_val_loss)
 
 
 
