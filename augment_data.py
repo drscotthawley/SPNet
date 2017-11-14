@@ -2,6 +2,7 @@
 
 # Implements data-augmentation in the form of flipping images vertically, horizontally, and "both"
 # when images are altered, metadata (in accompanying text files) also needs to be altered
+# By default, only affects *Training* data.  Leaves Val & Test alone
 
 import numpy as np
 import cv2
@@ -46,7 +47,7 @@ def augment(path='Train/'):
         height, width, channels = img.shape
         #print(" height, width, channels = ",height, width, channels)
         metadata = read_metadata(txt_filename)
-        print(" metadata = ",metadata)
+        #print(" metadata = ",metadata)
 
         # flip  [ vertical, horizontal, both v & h ]
         for flip_param in [0,1,-1]:
@@ -57,18 +58,20 @@ def augment(path='Train/'):
             for an in range(len(flip_metadata)):
                 # parse_txt_file gives us md =  [cx, cy, a, b, cos(2*angle), sin(2*angle), 0 (noobj=0, i.e. existence), num_rings]
                 [cx, cy, a, b, angle, rings] =  flip_metadata[an]
-                cos2t, sin2t = np.cos(2*np.deg2rad(angle)), np.sin(2*np.deg2rad(angle))
-
+#                cos2t, sin2t = np.cos(2*np.deg2rad(angle)), np.sin(2*np.deg2rad(angle))
+#                angle = int(np.rad2deg( np.arctan2(sin2t,cos2t)/2.0 ))
                 if (flip_param in [0,-1]):
                     cy = height - cy
-                    sin2t *= -1       # flip the sin
-                if (flip_param in [1,-1]):
-                    cx = width - cx
-                    cos2t *= -1       # flip the cos
-
-                angle = int(np.rad2deg( np.arctan2(sin2t,cos2t)/2.0 ))
+                    angle = -angle #  sin2t *= -1       # flip the sin
                 if (angle < 0):
                     angle += 180
+                if (flip_param in [1,-1]):
+                    cx = width - cx
+                    angle = 180 - angle #cos2t *= -1       # flip the cos
+                if (angle < 0):
+                    angle += 180
+                elif (angle >= 180):
+                    angle = angle - 180
 
                 # output metadata format is md = [cx, cy,  a, b, angle, num_rings]
                 this_caption = "[{0}, {1}, {2}, {3}, {4}, {5}]".format(cx, cy, a, b, angle, rings)
@@ -82,7 +85,7 @@ def augment(path='Train/'):
                 new_prefix = prefix + "_h"
             else:
                 new_prefix = prefix + "_b"
-            print("      new_prefix = ",new_prefix)
+            #print("      new_prefix = ",new_prefix)
 #            print("      caption = ",caption)
             with open(new_prefix+".txt", "w") as text_file:
                 text_file.write(caption)
