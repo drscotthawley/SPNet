@@ -189,7 +189,7 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
                 plt.xlim(xmin=1)
 
 
-            fig.tight_layout()      # get rid of useless margins
+            self.fig.tight_layout()      # get rid of useless margins
             if not self.use_tb:         # Write image to ordinary file
                 plt.savefig(self.log_dir+'/progress.png')
                 plt.close(self.fig)
