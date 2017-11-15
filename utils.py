@@ -165,18 +165,17 @@ def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None): 
     global means, ranges
 
     #true_arr = np.array(true_arr, dtype=dtype)   # convert from list to array
-    #cx_min, cx_max = np.min(true_arr[:,ind_cx::vars_per_pred]), np.max(true_arr[:,ind_cx::vars_per_pred])
-    #cy_min, cy_max = np.max(true_arr[:,ind_cy::vars_per_pred]), np.max(true_arr[:,ind_cy::vars_per_pred])
-    #xbinsize = int( (cx_max - cx_min) / pred_shape[0])
-    #ybinsize = int( (cy_max - cy_min) / pred_shape[1])
-    #print("true_arr = ",true_arr)
-    #print("  cx_min, cx_max = ",cx_min, cx_max)
-    #print("  cy_min, cy_max = ",cy_min, cy_max)
+    #[cx_min, cy_min] = [0, 0]
+    #[cx_max, cy_max] = orig_img_dims
+    [cx_min, cy_min] =  [40,  40]
+    [cx_max, cy_max] =[ 470, 350]
+    xbinsize = int( (cx_max - cx_min) / pred_shape[0])
+    ybinsize = int( (cy_max - cy_min) / pred_shape[1])
 
-    xbinsize = int(orig_img_dims[0] / pred_shape[0])
-    ybinsize = int(orig_img_dims[1] / pred_shape[1])
-    cx_min = xbinsize / 2
-    cy_min = ybinsize / 2
+    #xbinsize = int(orig_img_dims[0] / pred_shape[0])
+    #ybinsize = int(orig_img_dims[1] / pred_shape[1])
+    #cx_min = xbinsize / 2
+    #cy_min = ybinsize / 2
 
     # Also, set up the means & ranges for normalization, according to the grid of predictors
     gridmeans = np.zeros(pred_shape,dtype=dtype)
@@ -184,12 +183,12 @@ def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None): 
     griddefaults = np.zeros(pred_shape,dtype=dtype)
     for i in range(pred_shape[0]):
         for j in range(pred_shape[1]):
-            grid_cx = i*xbinsize + cx_min
-            grid_cy = j*ybinsize + cy_min
+            grid_cx = i*xbinsize + cx_min + xbinsize/2
+            grid_cy = j*ybinsize + cy_min + ybinsize/2
             #           format: [cx,         cy,           a,              b,     cos2theta, sin2theta,  noobj,  num_rings]   noobj = 0/1 flag for background
-            griddefaults[i,j] = [grid_cx,    grid_cy,   xbinsize/2,    ybinsize/2,      -1,      0,         1,    0] # default is noobj=1, rings=0, angle is 90 degrees
+            griddefaults[i,j] = [grid_cx,    grid_cy,   xbinsize/2,    ybinsize/2,      -1,      0,         1,    0] # default for 'blanks'.  So noobj=1 (nothing there),  rings=0, angle is 90 degrees
             gridmeans[i,j] =    [grid_cx,    grid_cy,   xbinsize/2,    ybinsize/2,       0,      0,       0.5,    5] # + [0]*(num_classes+1)
-            gridranges[i,j] =   [xbinsize,  ybinsize,   xbinsize,      ybinsize,         2,      2,         1,   10] #+ [1]*(num_classes+1)
+            gridranges[i,j] =   [xbinsize,  ybinsize,   xbinsize,      ybinsize,         2,      2,         1,   10] #+ [1]*(num_classes+1),  -1 to 1 is range of 2
 
     gridYi = np.copy(griddefaults)              # initialize a single grid-Y output with default values
 
@@ -200,10 +199,15 @@ def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None): 
     #print("divvy_up_true: true_arr = ",true_arr)
     assigned_counts = np.zeros(gridYi.shape[0:2],dtype=np.int)   # count up how many times a given array has been assigned
     for an in range(true_arr.shape[0]):
-        #print("      true_arr[an,0] = ",true_arr[an,0],",  xbinsize, ybinsize = ",xbinsize, ybinsize)
-        ind_x = int(true_arr[an,0] / xbinsize)  # index within the grid of predictors
-        ind_y = int(true_arr[an,1] / ybinsize)
-        #print("            ind_x, ind_y = ",ind_x, ind_y,", assigned_counts[ind_x, ind_y] =",assigned_counts[ind_x, ind_y])
+        #print("      true_arr[an,0:2] = ",true_arr[an,0:2],",  xbinsize, ybinsize = ",xbinsize, ybinsize,", pred_shape = ",pred_shape)
+        ind_x = int((true_arr[an,0]  - cx_min) / xbinsize)  # index within the grid of predictors
+        ind_y = int((true_arr[an,1] -  cy_min) / ybinsize)
+        #print("            ind_x, ind_y = ",ind_x, ind_y)
+
+        ind_x = min(  max(ind_x, 0), pred_shape[0]-1)
+        ind_y = min(  max(ind_y, 0), pred_shape[1]-1)
+        #print("            ind_x, ind_y = ",ind_x, ind_y)
+        #print("            assigned_counts[ind_x, ind_y] =",assigned_counts[ind_x, ind_y])
         if not (assigned_counts[ind_x, ind_y] < pred_shape[2]):
             print("true_to_pred_grid: Error: Have already added ",assigned_counts[ind_x, ind_y]," out of a maximum of ",gridYi.shape[2],
             "possible 'slots' to predictive-grid cell [",ind_x,",",ind_y,"].  Increase last dimstion of pred_shape.")
@@ -228,8 +232,11 @@ def add_to_stack(a,b):  # makes a vertical stack of 1-d arrays
     return np.concatenate((a,b[None,:]))
 
 
+def nearest_multiple( a, b ):   # returns number smaller than a, which is the nearest multiple of b
+    return  int(a/b) * b
+
 # builds the Training or Test data set
-def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscale=False, force_dim=224, pred_grid=[6,6,2]):
+def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscale=False, force_dim=224, pred_grid=[6,6,2], batch_size=None):
     global means, ranges
 
     img_file_list = sorted(glob.glob(path+'steelpan*.bmp'))
@@ -238,6 +245,9 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
 
     total_files = len(img_file_list)
     total_load = int(total_files * load_frac)
+    if (batch_size is not None):                # keras gets particular: dataset size must be mult. of batch_size
+        total_load = nearest_multiple( total_load, batch_size)
+
     print("       total files = ",total_files,", going to load total_load = ",total_load)
 
     i = 0
@@ -297,6 +307,8 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
     # ------- All data has been read from disk at this point ------
 
     if (set_means_ranges):    # do some analysis on the dataset, e.g. set predictor default locations on grid
+        #cx_min, cx_max = np.min(true_stack[:,ind_cx::vars_per_pred]), np.max(true_stack[:,ind_cx::vars_per_pred])
+        #cy_min, cy_max = np.max(true_stack[:,ind_cy::vars_per_pred]), np.max(true_stack[:,ind_cy::vars_per_pred])
         pass
 
     for i in range(total_load):                         # Divvy up all true values to grid of predictors
@@ -327,9 +339,9 @@ def parse_txt_file(txt_filename):
         vals = [float(numeric_string) for numeric_string in string_vars]
         subarr = vals[0:vars_per_pred]  # note vars_per_pred includes a slot for no-object, but numpy slicing convention means subarr will be vars_per_pred-1 elements long
 
-        # Input format (from file) is [cx, cy, num_rings, a, b, angle]
+        # Input format (from file) is [cx, cy,  a, b, angle, num_rings]
         #    But we'll change that to [cx, cy, a, b, cos(2*angle), sin(2*angle), 0 (noobj=0, i.e. existence), num_rings] for ease of transition to classification
-        [cx, cy, num_rings, a, b, angle] = subarr
+        [cx, cy, a, b, angle, num_rings] = subarr
         tmp_arr = [cx, cy, a, b, np.cos(2*np.deg2rad(angle)), np.sin(2*np.deg2rad(angle)), 0, num_rings]
         #tmp_arr = subarr[:]  # clone the list
         #tmp_arr[2:5] = subarr[3:6]  # shift last three vars to the left

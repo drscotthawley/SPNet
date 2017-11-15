@@ -46,7 +46,7 @@ def calc_errors(Yp, Yt):  #index = 2 is where the ring count is stored.
 
 
 def acc_extrap_func(x, a, b, c):  # extrapolation function for accuracy
-    return a + b * (1- np.exp(-c * x))
+    return a * (1.0 - np.exp(-b * (x-c)))
 
 
 # Custom callbacks
@@ -56,6 +56,11 @@ train_loss_hist = []
 val_loss_hist = []
 my_val_loss_hist = []
 acc_hist = []
+center_loss_hist = []
+size_loss_hist = []
+angle_loss_hist = []
+noobj_loss_hist = []
+class_loss_hist = []
 
 global_count = 0                	       # global_count is handy when nb_epoch = 1
 n_epochs_per_plot = 1
@@ -109,8 +114,15 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             elapsed = time.time() - start_time
             print("    ...elapsed time to predict = ",elapsed,"s.   FPS = ",m*1.0/elapsed)
 
-            my_val_loss = my_loss(Y_val, Y_pred)
+            # detailed loss analysis, component by component
+            my_val_loss, loss_parts = my_loss(Y_val, Y_pred)
+            [center_loss, size_loss, angle_loss, noobj_loss, class_loss] = loss_parts
             my_val_loss_hist.append(my_val_loss)
+            center_loss_hist.append(center_loss)
+            size_loss_hist.append(size_loss)
+            angle_loss_hist.append(angle_loss)
+            noobj_loss_hist.append(noobj_loss)
+            class_loss_hist.append(class_loss)
 
             # calc some errors.  first transform back into regular 'world' values via de-normalization
             Yt = denorm_Y(Y_val)     # t is for true
@@ -138,37 +150,46 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
                 else:
                     ax.plot(Yt[0:num_plot,ind],Yt[0:num_plot,ind+1],'ro')
                     ax.plot(Yp[0:num_plot,ind],Yp[0:num_plot,ind+1],'go')
-
+            ax.set_title('Sample Centroids (cx, cy)')
             ax.legend(loc='upper right', fancybox=True, framealpha=0.8)
 
             #  Plot history: Loss vs. Time graph
             if not ([] == val_loss_hist):
-                ymin = np.min(train_loss_hist + val_loss_hist)
+                ymin = np.min(train_loss_hist + val_loss_hist + center_loss_hist + size_loss_hist + noobj_loss_hist)
                 ymax = np.max(train_loss_hist + val_loss_hist)
+                #TODO: Add loss histories for different *parts* of loss: location, semi's, angle, rings, etc....
                 ax = plt.subplot(132, ylim=[np.min((ymin,0.01)),np.min((ymax,0.1))])    # cut the top off at 0.1 if necessary, so we can better see low-error features
-                ax.semilogy(hist, train_loss_hist,'b-',label="Train")
-                ax.semilogy(hist, val_loss_hist,'r-',label="Val")
+                ax.semilogy(hist, train_loss_hist,'-',label="Train")
+                ax.semilogy(hist, val_loss_hist,'-',label="Val: Total")
+                ax.semilogy(hist, center_loss_hist,'-',label="Val: Center")
+                ax.semilogy(hist, size_loss_hist,'-',label="Val: Size")
+                ax.semilogy(hist, angle_loss_hist,'-',label="Val: Angle")
+                ax.semilogy(hist, noobj_loss_hist,'-',label="Val: NoObj")
+                ax.semilogy(hist, class_loss_hist,'-',label="Val: Class")
+
                 ax.set_xlabel('(Global) Epoch')
                 ax.set_ylabel('Loss')
-                ax.set_title('class accuracy = {:5.2f} %'.format(class_acc))
+                #ax.set_title('class accuracy = {:5.2f} %'.format(class_acc))
                 ax.legend(loc='upper right', fancybox=True, framealpha=0.8)
                 plt.xlim(xmin=1)
 
                 # plot accuracy history
-                ax = plt.subplot(133, ylim=[0,np.max(acc_hist)])
-                ax.plot(hist, acc_hist,'-',color='orange')
+                ax = plt.subplot(133, ylim=[0,100])
+                ax.plot(hist, acc_hist,'-',color='orange', label='Acc = {:5.2f} %'.format(class_acc))
                 ax.set_xlabel('(Global) Epoch')
                 ax.set_ylabel('Class Accuracy (%)')
-                if (len(acc_hist) > 25):
-                    start_at = 10    # ignore everything before a certain epoch
-                    popt, pcov = curve_fit(acc_extrap_func, hist[start_at:], acc_hist[start_at:])
-                    ax.plot(hist, acc_extrap_func(hist, *popt), 'c--', label="Fitted Curve")
-                    ax.set_title("Extrapolation:  "+str(popt[0]+popt[1])+"%")
-
+                #if (len(acc_hist) >= 16):
+                #    start_at = 4    # ignore everything before a certain epoch
+                #    popt, pcov = curve_fit(acc_extrap_func, hist[start_at:], acc_hist[start_at:],p0=[85,0.02,start_at])
+                #    print("     Accuracy Extrapolation: ",popt[0],"%")
+                #    #ax.plot(hist, acc_extrap_func(hist, *popt), 'c--', label='Fit, Max at {:5.2f} %'.format(popt[0]+popt[1]))
+                #    #ax.set_title("Extrapolation:  "+str(popt[0]+popt[1])+"%")
+                ax.legend(loc='bottom right', fancybox=True, framealpha=0.8)
                 #ax.set_title('class accuracy = {:5.2f} %'.format(class_acc))
                 plt.xlim(xmin=1)
 
 
+            fig.tight_layout()      # get rid of useless margins
             if not self.use_tb:         # Write image to ordinary file
                 plt.savefig(self.log_dir+'/progress.png')
                 plt.close(self.fig)
@@ -199,20 +220,21 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
 def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0):
     np.random.seed(1)
 
+    # Params for training: batch size, ....
+    batch_size = 20 #20 for large images    # greater batch size runs faster but may yield Out Of Memory errors
+                                            # also note that small batches yield better generalization: https://arxiv.org/pdf/1609.04836.pdf
+
     print("Getting data..., fraction = ",fraction)
-    X_train, Y_train, img_dims, train_file_list, pred_shape = build_dataset(path=datapath, load_frac=fraction, set_means_ranges=True)
+    X_train, Y_train, img_dims, train_file_list, pred_shape = build_dataset(path=datapath, load_frac=fraction, set_means_ranges=True, batch_size=batch_size)
 #    testpath="Test/"
 #    X_test, Y_test, img_dims, test_file_list  = build_dataset(path=testpath, load_frac=fraction)
     valpath="Val/"
-    X_val, Y_val, img_dims, val_file_list, pred_shape  = build_dataset(path=valpath, load_frac=fraction, set_means_ranges=False)
+    X_val, Y_val, img_dims, val_file_list, pred_shape  = build_dataset(path=valpath, load_frac=fraction, set_means_ranges=False, batch_size=batch_size)
 
     print("Instantiating model...")
     parallel=True
     model = setup_model(X_train, Y_train, no_cp_fatal=False, weights_file=weights_file, parallel=parallel)
 
-    # Params for training: batch size, ....
-    batch_size = 20 #20 for large images    # greater batch size runs faster but may yield Out Of Memory errors
-                                            # also note that small batches yield better generalization: https://arxiv.org/pdf/1609.04836.pdf
     # Set up callbacks
     checkpointer = ModelCheckpoint(filepath=weights_file, save_best_only=True)
     #history = KerasLossHistory()

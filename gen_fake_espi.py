@@ -164,10 +164,7 @@ def draw_antinodes(img,num_antinodes=1):
 
         draw_rings(img,center,axes,angle=angle,num_rings=num_rings)
 
-# [x coordinate of antinode center, y coordinate, subject_id/frame_num,
-# number of fringes for that region, radius in the x direction, radius in y (if there were no rotation)
-# and the angle the ellipse is at]
-        this_caption = "[{0}, {1}, {2}, {3}, {4}, {5}]".format(center[0], center[1],num_rings,axes[0],axes[1],angle)
+        this_caption = "[{0}, {1}, {2}, {3}, {4}, {5}]".format(center[0], center[1],axes[0], axes[1], angle, num_rings)
         #print(this_caption)
         if (an > 0):
             caption+="\n"
@@ -177,17 +174,18 @@ def draw_antinodes(img,num_antinodes=1):
 
 
 def make_sure_path_exists(path):
-    try:
+    try:                # go ahead and try to make the the directory
         os.makedirs(path)
     except OSError as exception:
-        if exception.errno != errno.EEXIST:
+        if exception.errno != errno.EEXIST:  # ignore error if dir already exists
             raise
 
 # TODO: haven't figured out how to pass args when multiprocessing; the following globals should be replaced w/ args at some point
+# for now, we define them globally but set them in __main__
 frame_start = 0
-num_frames = 240000
-num_tasks = 12    # we've got 12 processors. choose a number with a large (num_tasks % 12) that's still a factor of num_frames
-frames_per_task= int(round(num_frames / num_tasks))
+num_frames = 0
+num_tasks = 0
+frames_per_task= 0
 
 def gen_images(task):
     # have different tasks generate different parts of the dataset
@@ -214,7 +212,7 @@ def gen_images(task):
         num_antinodes= 6# random.randint(0,max_antinodes)   # should we allow zero antinodes?
 
         img, caption = draw_antinodes(img, num_antinodes=num_antinodes)
-        #img = cv2.GaussianBlur(img,(7,7),0)
+        #img = cv2.GaussianBlur(img,(3,3),0)
         noise = cv2.randn(np.zeros(np_dims, np.uint8),50,50);
         img = cv2.add(img, noise)
 
@@ -228,6 +226,13 @@ def gen_images(task):
 
 # --- Main code
 if __name__ == "__main__":
+    #global frame_start, num_frames, num_tasks, frames_per_task
+    frame_start = 0
+    num_frames = 1000
+    num_tasks = 10    # we've got 12 processors. but 10 is 'cleaner'
+    frames_per_task= int(round(num_frames / num_tasks))
+
+
     start_time = time.clock()
 
     make_sure_path_exists('Train')
