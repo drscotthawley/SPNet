@@ -39,7 +39,7 @@ if __name__ == "__main__":
     txt_file_list = sorted(glob.glob(path+'steelpan*.txt'))
     assert( len(img_file_list) == len(txt_file_list))
 
-    for i in range(len(img_file_list)):
+    for i in [1]:#range(len(img_file_list)):
         img_filename = img_file_list[i]
         txt_filename = txt_file_list[i]
 
@@ -47,7 +47,7 @@ if __name__ == "__main__":
         print(" img_filename = ",img_filename,", prefix = ",prefix)
         img =  cv2.imread(img_filename)
         metadata = read_metadata(txt_filename)
-        #cv2.imshow(prefix,draw_ellipses(img, metadata))
+        cv2.imshow(prefix,draw_ellipses(img, metadata))
 
         img_count = 0
         names = []
@@ -73,15 +73,15 @@ if __name__ == "__main__":
                         if (do_inv):
                             inv_img, inv_metadata, inv_prefix = invert_image( rot_img, rot_metadata, rot_prefix)
                         names.append(inv_prefix)
-                        #cv2.imshow(inv_prefix, draw_ellipses(inv_img, inv_metadata))
+                        cv2.imshow(inv_prefix, draw_ellipses(inv_img, inv_metadata))
                         img_count += 1
-                        #print(img_count, flip_param, do_blur, irot, do_inv, inv_prefix)
+                        print(img_count, flip_param, do_blur, irot, do_inv, inv_prefix)
 
         unique = len(set(names))
-        dupes = JohnLaRooy(names)
+        dupes = JohnLaRooy_duplicates(names)
         print(" generated ",img_count," new images (len = ",len(names),") and ",unique," unique names.  duplicates are ",dupes)
-    '''
+
     k = cv2.waitKey(0)
     if k == 27:         # wait for ESC key to exit
         cv2.destroyAllWindows()
-    '''
+    
