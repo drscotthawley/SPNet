@@ -10,6 +10,8 @@ import PIL
 from operator import itemgetter
 import keras.backend as K
 import tensorflow as tf
+import os
+import errno
 
 
 dtype = np.float32
@@ -33,6 +35,13 @@ ind_angle2 = 5          # sin(2*theta)
 ind_noobj = 6
 ind_rings = 7
 
+
+def make_sure_path_exists(path):
+    try:                # go ahead and try to make the the directory
+        os.makedirs(path)
+    except OSError as exception:
+        if exception.errno != errno.EEXIST:  # ignore error if dir already exists
+            raise
 
 
 def draw_ellipse(
@@ -92,8 +101,8 @@ def show_pred_ellipses(Yt, Yp, file_list, num_draw=40, log_dir='./logs/', ind_ex
             if (noobj < 0.5) and (rings > 0) and (a>=0) and (b>=0):  # only draw if you should and if you can
                 draw_ellipse(img, [cx, cy], [a,b], angle, color=red, thickness=2)
                 #cv2.putText(img, "{: >2d}".format(rings), (cx-13,cy), cv2.FONT_HERSHEY_TRIPLEX, 0.95, grey, lineType=cv2.LINE_AA);  # add a little outline for readibility
-                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy+2), cv2.FONT_HERSHEY_TRIPLEX, 0.95, black, lineType=cv2.LINE_AA);  # add a little outline for readibility
-                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy), cv2.FONT_HERSHEY_TRIPLEX, 0.85, red, lineType=cv2.LINE_AA);
+                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy+2), cv2.FONT_HERSHEY_TRIPLEX, 0.95, black, lineType=cv2.LINE_AA)  # add a little outline for readibility
+                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy), cv2.FONT_HERSHEY_TRIPLEX, 0.85, red, lineType=cv2.LINE_AA)
 
             [cx, cy, a, b, cos2t, sin2t, noobj, rings] = Yp[j,an*vars_per_pred:(an+1)*vars_per_pred]   # ellipse for Prediction
             cx, cy,  a, b, noobj, rings = int(round(cx)), int(round(cy)),  int(round(a)), int(round(b)), int(round(noobj)), int(round(rings)) # OpenCV wants ints or it barfs
@@ -105,9 +114,12 @@ def show_pred_ellipses(Yt, Yp, file_list, num_draw=40, log_dir='./logs/', ind_ex
                 print("       Pred:   {: >4d}, {: >4d},  {: >4d}, {: >4d},   {: >6.2f},  {: >2d}, {: >4d}".format(cx, cy, a, b, angle, noobj, rings))
             if (noobj < 0.5) and (rings > 0) and (a>=0) and (b>=0):  # only draw if you should and if you can
                 draw_ellipse(img, [cx, cy], [a,b], angle, color=green, thickness=2)
-                #cv2.putText(img, "{: >2d}".format(rings), (cx-13,cy+27), cv2.FONT_HERSHEY_TRIPLEX, 0.95, grey, lineType=cv2.LINE_AA);     # white outline
-                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy+29), cv2.FONT_HERSHEY_TRIPLEX, 0.95, black, lineType=cv2.LINE_AA);     # dark outline
-                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy+27), cv2.FONT_HERSHEY_TRIPLEX, 0.85, green, lineType=cv2.LINE_AA);
+                #cv2.putText(img, "{: >2d}".format(rings), (cx-13,cy+27), cv2.FONT_HERSHEY_TRIPLEX, 0.95, grey, lineType=cv2.LINE_AA)     # white outline
+                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy+29), cv2.FONT_HERSHEY_TRIPLEX, 0.95, black, lineType=cv2.LINE_AA)     # dark outline
+                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy+27), cv2.FONT_HERSHEY_TRIPLEX, 0.85, green, lineType=cv2.LINE_AA)
+
+        cv2.putText(img, in_filename, (7, orig_img_dims[1]-3), cv2.FONT_HERSHEY_SIMPLEX, 0.55, black, lineType=cv2.LINE_AA); # display the filename
+        cv2.putText(img, in_filename, (5, orig_img_dims[1]-5), cv2.FONT_HERSHEY_SIMPLEX, 0.55, white, lineType=cv2.LINE_AA); # display the filename
 
         cv2.imwrite(out_filename,img)           # save output image
 
@@ -156,7 +168,7 @@ def set_Y_norms(Y, pred_shape):
 
 
 def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None):    # the essence of the YOLO-style approach
-                                    # this takes our 'true' antinode info, and assigns it across the 'grid' of predictors, i.e. YOLO-style
+                                    # this takes our 'true' antinode info for one image, and assigns it across the 'grid' of predictors, i.e. YOLO-style
                                     # true_arr is a list of antinode data which has been read from a text file
                                     # pred_shape has dimensions [nx, nx, preds_per_cell, vars_per_pred]
     # TODO: and each value is organized (according to loss type) as
@@ -198,6 +210,9 @@ def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None): 
     # Now here's where we actually assign the true_arr values
     #print("divvy_up_true: true_arr = ",true_arr)
     assigned_counts = np.zeros(gridYi.shape[0:2],dtype=np.int)   # count up how many times a given array has been assigned
+    this_shape = true_arr.shape
+    #print("   this_shape = ",this_shape)
+    #print("   true_arr = ",true_arr)
     for an in range(true_arr.shape[0]):
         #print("      true_arr[an,0:2] = ",true_arr[an,0:2],",  xbinsize, ybinsize = ",xbinsize, ybinsize,", pred_shape = ",pred_shape)
         ind_x = int((true_arr[an,0]  - cx_min) / xbinsize)  # index within the grid of predictors
@@ -224,12 +239,13 @@ def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None): 
     return gridYi
 
 
-def add_to_stack(a,b):  # makes a vertical stack of 1-d arrays
+def add_to_stack(a,b):  # makes a list of lists of lists. Indices are  [image i][antinode j][params within antinode j]
+    # TODO: I am not proud of this part of the code, and the ensuing np.array(list()).tolist() craziness elsewhere, But
+    #         having something working ATM is sufficient.
     if (a is None):
-        return b[None,:]
-    if (a.ndim ==1):
-        a = np.copy( a[None,:])
-    return np.concatenate((a,b[None,:]))
+        return [b]
+    return a + [b]
+    #return np.concatenate((a,b[None,:])) # does not work when images contain different #s of antinodes
 
 
 def nearest_multiple( a, b ):   # returns number smaller than a, which is the nearest multiple of b
@@ -239,8 +255,8 @@ def nearest_multiple( a, b ):   # returns number smaller than a, which is the ne
 def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscale=False, force_dim=224, pred_grid=[6,6,2], batch_size=None):
     global means, ranges
 
-    img_file_list = sorted(glob.glob(path+'steelpan*.bmp'))
-    txt_file_list = sorted(glob.glob(path+'steelpan*.txt'))
+    img_file_list = sorted(glob.glob(path+'*.png'))
+    txt_file_list = sorted(glob.glob(path+'*.txt'))
     assert( len(img_file_list) == len(txt_file_list))
 
     total_files = len(img_file_list)
@@ -299,12 +315,14 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
         else:
             X[i,:,:,:] = img[:,:,:]    # throw out the rgb and just keep greyscale
 
-        # one_true_arr holds  [ xc, yc, rings (1-11), a, b, theta (0-180)], multiple times
-        one_true_arr = np.array(parse_txt_file(txt_filename))     # one_true_arr is a list of the true info on all antinodes in this particular file
+        # one_true_arr holds  [ xc, yc, rings (1-11), a, b, theta (0-180)] for multiple antinodes, for one image
+        one_true_arr = np.array(parse_txt_file(txt_filename)).tolist()     # one_true_arr is a list of the true info on all antinodes in this particular file
+        #print("    txt_filename = ",txt_filename,", one_true_arr = ",one_true_arr)
         # add to the stack
         true_stack = add_to_stack(true_stack, one_true_arr)
 
     # ------- All data has been read from disk at this point ------
+    true_stack = np.array(true_stack)
 
     if (set_means_ranges):    # do some analysis on the dataset, e.g. set predictor default locations on grid
         #cx_min, cx_max = np.min(true_stack[:,ind_cx::vars_per_pred]), np.max(true_stack[:,ind_cx::vars_per_pred])
@@ -312,7 +330,7 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
         pass
 
     for i in range(total_load):                         # Divvy up all true values to grid of predictors
-        gridYi = true_to_pred_grid(true_stack[i], pred_shape, img_filename=img_file_list[i])     # add true values to y according to which 'grid cell' they apply to
+        gridYi = true_to_pred_grid(np.array(true_stack[i]), pred_shape, img_filename=img_file_list[i])     # add true values to y according to which 'grid cell' they apply to
 
         # Keras wants our output Y to be flat
         Y[i,:] = gridYi.flatten()
@@ -351,6 +369,4 @@ def parse_txt_file(txt_filename):
         arrs.append(tmp_arr)
 
     arrs = sorted(arrs,key=itemgetter(0,1))     # sort by y first, then by x
-
-
     return arrs

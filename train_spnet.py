@@ -184,7 +184,7 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
                 #    print("     Accuracy Extrapolation: ",popt[0],"%")
                 #    #ax.plot(hist, acc_extrap_func(hist, *popt), 'c--', label='Fit, Max at {:5.2f} %'.format(popt[0]+popt[1]))
                 #    #ax.set_title("Extrapolation:  "+str(popt[0]+popt[1])+"%")
-                ax.legend(loc='bottom right', fancybox=True, framealpha=0.8)
+                ax.legend(loc='lower right', fancybox=True, framealpha=0.8)
                 #ax.set_title('class accuracy = {:5.2f} %'.format(class_acc))
                 plt.xlim(xmin=1)
 

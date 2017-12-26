@@ -157,8 +157,7 @@ def instantiate_model(X, Y, freeze_fac=1.0):
     #base_model = InceptionV3(weights=weights, include_top=False, input_tensor=input_tensor)       # Works well, fast
     #base_model = InceptionResNetV2(weights=weights, include_top=False, input_tensor=input_tensor)  # works ok, big, slow.  doesn't play well with "unfreeze" in multi-gpu setting
     with CustomObjectScope({'relu6': keras.applications.mobilenet.relu6, 'DepthwiseConv2D': keras.applications.mobilenet.DepthwiseConv2D}):
-        base_model = MobileNet(input_shape=X[0].shape, weights=weights, include_top=False, input_tensor=input_tensor)       # Works well, VERY FAST! Needs img size 224x224
-
+        base_model = MobileNet(input_shape=X[0].shape, weights=weights, include_top=False, input_tensor=input_tensor, dropout=0.6)       # Works well, VERY FAST! Needs img size 224x224
     top_model = Sequential()        # top_model gets tacked on to pretrained model
     top_model.add(Flatten(input_shape=base_model.output_shape[1:]))
     top_model.add(Dense(Y[0].size,name='FinalOutput'))      # Final output layer
@@ -227,12 +226,12 @@ def unfreeze_model(model, X, Y, freeze_fac=0.0, parallel=True):
 
 
 # Loss functions
-
+# Lambda values tuned by experience: to make corresponding losses close to the same magnitude
 lambda_center = 1.0
 lambda_size = 1.0
-lambda_angle = 15.0
+lambda_angle = 10.0
 lambda_noobj = 0.5
-lambda_class = 5.0
+lambda_class = 3.0
 
 def custom_loss(y_true, y_pred):  # it's just MSE but the angle term is weighted by (a-b)^2
     print("custom_loss function engaged!")
@@ -276,4 +275,4 @@ def my_loss(y_true, y_pred):  # diagnostic.  same as custom_loss but via numpy; 
     print("    losses =",losses,", ind_max =",ind_max)
     #print("              losses = [{:>8.4g}, {:>8.4g}, {:>8.4g}, {:>8.4g}, {:>8.4g}]".format(losses),", ind of biggest =",big_ind)
     loss = np.sum(losses)
-    return loss
+    return loss, losses

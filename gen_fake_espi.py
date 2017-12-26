@@ -16,7 +16,6 @@ import numpy as np
 import cv2
 import random
 import os
-import errno
 import time
 import multiprocessing
 from utils import *
@@ -173,13 +172,6 @@ def draw_antinodes(img,num_antinodes=1):
     return img, caption
 
 
-def make_sure_path_exists(path):
-    try:                # go ahead and try to make the the directory
-        os.makedirs(path)
-    except OSError as exception:
-        if exception.errno != errno.EEXIST:  # ignore error if dir already exists
-            raise
-
 # TODO: haven't figured out how to pass args when multiprocessing; the following globals should be replaced w/ args at some point
 # for now, we define them globally but set them in __main__
 frame_start = 0
@@ -187,15 +179,21 @@ num_frames = 0
 num_tasks = 0
 frames_per_task= 0
 
+train_only = True           # Only gen fake images for the training set. False= make Test & Val images too
+
+
 def gen_images(task):
-    # have different tasks generate different parts of the dataset
-    val = task*1.0/num_tasks
-    if (val < 0.6):     # 3 * 20% = 60% Train
+    if (train_only):
         dirname = 'Train'
-    elif (val >= 0.8):    # 20%  Test
-        dirname = 'Test'
     else:
-        dirname = 'Val'    # 20% Val
+        # have different tasks generate different parts of the dataset
+        val = task*1.0/num_tasks
+        if (val < 0.6):     # 3 * 20% = 60% Train
+            dirname = 'Train'
+        elif (val >= 0.8):    # 20%  Test
+            dirname = 'Test'
+        else:
+            dirname = 'Val'    # 20% Val
 
     for iframe in range(frames_per_task):
         framenum = frame_start + task * frames_per_task + iframe
@@ -218,20 +216,17 @@ def gen_images(task):
 
         prefix = dirname+'/steelpan_'+str(framenum).zfill(7)
         #print("Task ", task,": writing with prefix",prefix)
-        cv2.imwrite(prefix+'.bmp',img)
+        cv2.imwrite(prefix+'.png',img)
         with open(prefix+".txt", "w") as text_file:
             text_file.write(caption)
 
 
-
-# --- Main code
-if __name__ == "__main__":
-    #global frame_start, num_frames, num_tasks, frames_per_task
+def gen_fake_espi():
+    print("gen_fake_data: Generating synthetic data")
     frame_start = 0
-    num_frames = 1000
+    num_frames = 50000
     num_tasks = 10    # we've got 12 processors. but 10 is 'cleaner'
     frames_per_task= int(round(num_frames / num_tasks))
-
 
     start_time = time.clock()
 
@@ -241,8 +236,6 @@ if __name__ == "__main__":
 
     random.seed(1)
 
-
-
     num_procs = multiprocessing.cpu_count()
     print(num_procs," processors available, assigning ",num_tasks,"tasks..")
     tasks = range(num_tasks)
@@ -251,6 +244,11 @@ if __name__ == "__main__":
     pool.close()
     pool.join()
 
-
     print(time.clock() - start_time, "seconds")
+
+
+# --- Main code
+if __name__ == "__main__":
+    #global frame_start, num_frames, num_tasks, frames_per_task
+    gen_fake_espi()
 #cv2.destroyAllWindows()

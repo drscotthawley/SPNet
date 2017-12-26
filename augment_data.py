@@ -16,14 +16,15 @@ def read_metadata(txt_filename):
     f = open(txt_filename, "r")
     lines = f.readlines()
     f.close()
-
+    #print("    Reading from text file ",txt_filename)
     xmin = 99999
     arrs = []
     for j in range(len(lines)):
         line = lines[j]   # grab a line
         line = line.translate({ord(c): None for c in '[] '})     # strip unwanted chars in unicode line
         string_vars = line.split(sep=',')
-        vals = [int(numeric_string) for numeric_string in string_vars]
+        #print("string_vars = ",string_vars)
+        vals = [int(round(float(numeric_string))) for numeric_string in string_vars]
         subarr = vals[0:vars_per_pred]  # note vars_per_pred includes a slot for no-object, but numpy slicing convention means subarr will be vars_per_pred-1 elements long
         [cx, cy, a, b, angle, num_rings] = subarr
         #tmp_arr = [cx, cy, a, b, np.cos(2*np.deg2rad(angle)), np.sin(2*np.deg2rad(angle)), 0, num_rings]
@@ -120,17 +121,21 @@ def invert_image(img, metadata, file_prefix):
     return cv2.bitwise_not(img.copy()), list(metadata), prefix
 
 
-def augment(path='Train/'):
-    img_file_list = sorted(glob.glob(path+'steelpan*.bmp'))
-    txt_file_list = sorted(glob.glob(path+'steelpan*.txt'))
-    assert( len(img_file_list) == len(txt_file_list))
+def augment_data(path='Train/'):
+    print("augment_data: Augmenting data in Train/")
 
-    for i in range(len(img_file_list)):
+    img_file_list = sorted(glob.glob(path+'*.png'))
+    txt_file_list = sorted(glob.glob(path+'*.txt'))
+    assert( len(img_file_list) == len(txt_file_list))
+    numfiles = len(img_file_list)
+    for i in range(numfiles):
+        if (0 == i % 50):
+            print("     Progress:  i = ",i," of ",numfiles)
         img_filename = img_file_list[i]
         txt_filename = txt_file_list[i]
 
         prefix = os.path.splitext(img_filename)[0]
-        print(" img_filename = ",img_filename,", prefix = ",prefix)
+        #print(" img_filename = ",img_filename,", prefix = ",prefix)
         img =  cv2.imread(img_filename)
         metadata = read_metadata(txt_filename)
         '''
@@ -161,7 +166,7 @@ def augment(path='Train/'):
                     inv_img = rot_img.copy()
                     inv_metadata = list(rot_metadata)
                     inv_prefix = rot_prefix
-                    for do_inv in [False, True]:
+                    for do_inv in [False]:#  , True]:    # actually @achmorrison specifies: count rings using white/grey not black
                         if (do_inv):
                             inv_img, inv_metadata, inv_prefix =invert_image( rot_img, rot_metadata, rot_prefix)
 
@@ -169,13 +174,14 @@ def augment(path='Train/'):
                         img_count += 1
                         # Actually output the img file and the metadata text file
                         caption = caption_from_metadata( inv_metadata )
-                        with open(inv_prefix+".txt", "w") as text_file:
-                            text_file.write(caption)
-                        cv2.imwrite(inv_prefix+'.bmp',inv_img)
+                        if (True):     # TODO: quick flag to turn off file writing
+                            with open(inv_prefix+".txt", "w") as text_file:
+                                text_file.write(caption)
+                            cv2.imwrite(inv_prefix+'.png',inv_img)
                         #print(img_count, inv_prefix)
         unique = len(set(names))
-        print("   Generated ",img_count," images and ",unique," unique names")
+        #print("   Generated ",img_count," images and ",unique," unique names")
 
 
 if __name__ == "__main__":
-    augment()
+    augment_data()

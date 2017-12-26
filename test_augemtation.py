@@ -35,7 +35,7 @@ def JohnLaRooy_duplicates(L):
 if __name__ == "__main__":
     random.seed(1)
     path = 'Train/'
-    img_file_list = sorted(glob.glob(path+'steelpan*.bmp'))
+    img_file_list = sorted(glob.glob(path+'steelpan*.png'))
     txt_file_list = sorted(glob.glob(path+'steelpan*.txt'))
     assert( len(img_file_list) == len(txt_file_list))
 
@@ -84,4 +84,3 @@ if __name__ == "__main__":
     k = cv2.waitKey(0)
     if k == 27:         # wait for ESC key to exit
         cv2.destroyAllWindows()
-    
