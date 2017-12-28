@@ -168,7 +168,7 @@ def draw_antinodes(img,num_antinodes=1):
 
         # make sure they don't overlap, and are in bounds of image
         # TODO: the following random placement is painfully inefficient
-        trycount, maxtries = 0, 100000
+        trycount, maxtries = 0, 200000
         while (   ( (True == does_overlap_previous(box, boxes_arr))
             or (box[0]<0) or (box[2] > imWidth)
             or (box[1]<0) or (box[3] > imHeight)  ) and (trycount < maxtries) ):
@@ -181,17 +181,20 @@ def draw_antinodes(img,num_antinodes=1):
             angle = random.randint(1, 180)
             box = get_ellipse_box(center, axes, angle)
 
+        success = False
         if (trycount < maxtries):
             draw_rings(img, center, axes, angle=angle, num_rings=num_rings)
             this_caption = "[{0}, {1}, {2}, {3}, {4}, {5}]".format(center[0], center[1],axes[0], axes[1], angle, num_rings)
+            success = True
         else:   # just skip this antinode
-            print("\n\r",pad,"ERR Can't fit\n",sep="",end="\r")
+            print("\n\r",pad,":WARNING Can't fit an=",an,"\n",sep="",end="\r")
             this_caption = ""
 
-        if (an > 0):
-            caption+="\n"
-        caption += this_caption
-        boxes_arr.append(box)
+        if (success):               # don't add blank lines, only add lines for success
+            if (an > 0):
+                caption+="\n"
+            caption += this_caption
+            boxes_arr.append(box)
     return img, caption
 
 
@@ -206,7 +209,7 @@ def gen_images_wrapper(task):
 def gen_images(task):
     global pad
     if (train_only):
-        dirname = 'Train/'
+        dirname = 'Train_fake/'
     else:
         # have different tasks generate different parts of the dataset
         val = task*1.0/num_tasks
@@ -218,7 +221,7 @@ def gen_images(task):
             dirname = 'Val'    # 20% Val
 
     # used for spacing out task output
-    pad_space = max(14, int(round(get_terminal_size().columns / num_tasks)))
+    pad_space = max(14, int(round( get_terminal_size().columns / (num_tasks+0.5))))
     pad = '\033['+str(pad_space*task)+'C'   # ANSI code to move cursor to the right
     if (0==task):
         pad = ''
