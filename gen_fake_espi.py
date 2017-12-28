@@ -17,8 +17,9 @@ import cv2
 import random
 import os
 import time
-import multiprocessing
+import multiprocessing as mp
 from utils import *
+import sys, traceback
 
 winName = 'ImgWindowName'
 #imWidth = 224                  # needed for MobileNet
@@ -35,33 +36,36 @@ white = (255)
 black = (0)
 grey = (128)
 
+blur_prob = 0.5    # probability that an image gets blurred
+
+def blur_image(img, kernel_size=3):
+    if (0==kernel_size):
+        return img
+    new_img = img#.copy()
+    new_img = cv2.GaussianBlur(img,(kernel_size,kernel_size),0)
+    return new_img
+
 
 def draw_waves(img):
     #pts = np.array([[10,5],[20,30],[70,20],[50,10]], np.int32)
     xs = np.arange(0, imWidth)
     ys = np.arange(0, imHeight)
-    #xcoords = np.tile(xs, (img.shape[1],1))
-    #ycoords = np.tile(ys, (img.shape[0],1))
 
     amp = random.randint(10,200)
     x_wavelength = random.randint(100,imWidth/2)
-    y_wavelength = random.randint(20,int(imHeight/4))
-    thickness = random.randint(3,10)
+    thickness = random.randint(15,40)
     slope = 3*(np.random.rand()-.5)
-    numlines = 40+int(imHeight/y_wavelength)
-    #print(amp,x_wavelength,y_wavelength,thickness,slope,numlines)
-    #img = img+np.array( amp* np.cos( xcoords/x_wavelength)*np.sin(ycoords/y_wavelength), dtype=np.uint8)
-    #return
+    y_spacing = random.randint(thickness + thickness*int(np.abs(1.5*slope)), int(imHeight/3))
+    numlines = 60+int(imHeight/y_spacing)
 
-    for j in range(numlines):
-        y_start = j*y_wavelength - img.shape[1]*abs(slope)
-        #print("y_start = ",y_start)
+    for j in range(numlines):   # skips y_spacing in between drawings
+        y_start = j*y_spacing - img.shape[1]*abs(slope)
         pts = []
         for i in range(len(xs)):
             pt = [ int(xs[i]), int(y_start + slope*xs[i]+ amp * np.cos(xs[i]/x_wavelength))]
             pts.append(pt)
         pts = np.array(pts, np.int32)
-        cv2.polylines(img, [pts], False, grey, thickness=thickness)
+        cv2.polylines(img, [pts], False, black, thickness=thickness)
     return
 
 
@@ -120,7 +124,6 @@ def does_overlap( a, b):
 def does_overlap_previous(box, boxes_arr):
     # returns true if bounding box of new ellipse (ignoring angle) would
     # overlap with previous ellipses
-    #print("    does_overlap_previous: box = ",box)
     if ([] == boxes_arr):
         return False
     for i in range(len(boxes_arr)):
@@ -152,9 +155,10 @@ def draw_antinodes(img,num_antinodes=1):
         while(True == does_overlap_previous(box, boxes_arr)
             or (box[0]<0) or (box[2] > imWidth)
             or (box[1]<0) or (box[3] > imHeight)  ):
+
             # generate new values
             #print("    Re-doing it")
-            axes = (random.randint(20,int(imWidth/3)), random.randint(20,int(imHeight/3)))
+            axes = (random.randint(25,int(imWidth/3)), random.randint(25,int(imHeight/3)))
             axes = sorted(axes, reverse=True)   # do descending order
             center = (random.randint(axes[0],imWidth-axes[0]),
                 random.randint(axes[1],imHeight-axes[1]))
@@ -181,10 +185,18 @@ frames_per_task= 0
 
 train_only = True           # Only gen fake images for the training set. False= make Test & Val images too
 
+pad_space = 14     # used for spacing out task output
+
+def gen_images_wrapper(task):
+    try:
+        gen_images(task)
+    except:
+        print("Error on task",task,":",traceback.format_exc())
+
 
 def gen_images(task):
     if (train_only):
-        dirname = 'Train'
+        dirname = 'Train/'
     else:
         # have different tasks generate different parts of the dataset
         val = task*1.0/num_tasks
@@ -195,14 +207,19 @@ def gen_images(task):
         else:
             dirname = 'Val'    # 20% Val
 
+    #pad = ' '.rjust(pad_space*task)
+    pad = '\033['+str(pad_space*task)+'C'   # ANSI code to move cursor to the right
+    if (0==task):
+        pad = ''
+    task_maxframe = (task+1)*frames_per_task-1
+
     for iframe in range(frames_per_task):
         framenum = frame_start + task * frames_per_task + iframe
-        if (0 == framenum % 50):
-            pad = ' '.rjust(4*task)
-            print(pad,"task",task,": framenum = ",framenum,", ending at ",(task+1)*frames_per_task-1)
+        if (0 == framenum % 1):
+            print(pad, task,":",framenum,"/",task_maxframe,sep="",end="\r")
         np_dims = (imHeight, imWidth, 1)                       # for numpy, dimensions are reversed
 
-        img = np.zeros(np_dims, np.uint8)
+        img = 128*np.ones(np_dims, np.uint8)
 
         draw_waves(img)
 
@@ -210,7 +227,13 @@ def gen_images(task):
         num_antinodes= 6# random.randint(0,max_antinodes)   # should we allow zero antinodes?
 
         img, caption = draw_antinodes(img, num_antinodes=num_antinodes)
-        #img = cv2.GaussianBlur(img,(3,3),0)
+
+        blur_dice_roll = np.random.random()
+        if (blur_dice_roll <= blur_prob):
+            blur_ksize = random.choice([3,5,7])
+            img = blur_image(img)
+
+        # post-blur noise
         noise = cv2.randn(np.zeros(np_dims, np.uint8),50,50);
         img = cv2.add(img, noise)
 
@@ -220,11 +243,14 @@ def gen_images(task):
         with open(prefix+".txt", "w") as text_file:
             text_file.write(caption)
 
+    print("\r",pad,task,":Finished",sep="",end="\r")
+
 
 def gen_fake_espi():
+    global frame_start, num_frames, num_tasks, frames_per_task
     print("gen_fake_data: Generating synthetic data")
     frame_start = 0
-    num_frames = 50000
+    num_frames = 100000
     num_tasks = 10    # we've got 12 processors. but 10 is 'cleaner'
     frames_per_task= int(round(num_frames / num_tasks))
 
@@ -236,13 +262,19 @@ def gen_fake_espi():
 
     random.seed(1)
 
-    num_procs = multiprocessing.cpu_count()
-    print(num_procs," processors available, assigning ",num_tasks,"tasks..")
+    num_procs = mp.cpu_count()
+    print(num_procs,"processors available.")
+    print("Assigning",num_tasks,"parallel tasks, processing",frames_per_task,"frames each.")
     tasks = range(num_tasks)
-    pool = multiprocessing.Pool()
-    results = pool.map(gen_images, tasks)
+    pool = mp.Pool()
+    mp.log_to_stderr()
+    print("Task progress...  <task>:<frame>/<maxframe>")
+    results = pool.map(gen_images_wrapper, tasks)
+    print("")
+    print("Back from pool.map, results =",results)
     pool.close()
     pool.join()
+    print("Back from pool.join")
 
     print(time.clock() - start_time, "seconds")
 
