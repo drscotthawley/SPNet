@@ -20,6 +20,7 @@ import time
 import multiprocessing as mp
 from utils import *
 import sys, traceback
+from shutil import get_terminal_size
 
 winName = 'ImgWindowName'
 #imWidth = 224                  # needed for MobileNet
@@ -38,6 +39,17 @@ grey = (128)
 
 blur_prob = 0.5    # probability that an image gets blurred
 
+# TODO: haven't figured out how to pass args when multiprocessing; the following globals should be replaced w/ args at some point
+# for now, we define them globally but set them in __main__
+frame_start = 0
+num_frames = 0
+num_tasks = 0
+frames_per_task= 0
+
+train_only = True           # Only gen fake images for the training set. False= make Test & Val images too
+pad = ''
+
+
 def blur_image(img, kernel_size=3):
     if (0==kernel_size):
         return img
@@ -52,7 +64,7 @@ def draw_waves(img):
     ys = np.arange(0, imHeight)
 
     amp = random.randint(10,200)
-    x_wavelength = random.randint(100,imWidth/2)
+    x_wavelength = random.randint(100,int(imWidth/2))
     thickness = random.randint(15,40)
     slope = 3*(np.random.rand()-.5)
     y_spacing = random.randint(thickness + thickness*int(np.abs(1.5*slope)), int(imHeight/3))
@@ -96,7 +108,9 @@ def get_ellipse_box(center, axes, angle):  # converts ellipse to bounding box
 
 def draw_rings(img,center,axes,angle=45,num_rings=5):
     num_wbrings = 2*num_rings  # draw in white & black
-    thickness = round(min(axes)/(num_wbrings))
+    if (0==num_wbrings):
+        num_wbrings = 1      # sorry, gotta avoid any & all errors because MP is a pain to debug
+    thickness = int(round( min(axes)/(num_wbrings) ))
     for j in range(num_wbrings):
         if (0 == j % 2):
             color = black
@@ -142,33 +156,38 @@ def draw_antinodes(img,num_antinodes=1):
     if (num_antinodes==0):
         caption = "[{0}, {1}, {2}, {3}, {4}, {5}]".format( imWidth/2.0,  imHeight/2.0,    0,  imWidth/4.0,    imHeight/4.0,    90.0)
     for an in range(num_antinodes): # draw a bunch of antinodes
-        num_rings = random.randint(1,11)            # well say that an antinode has at least 1 ring
+        num_rings = random.randint(1, 11)            # well say that an antinode has at least 1 ring
 
         axes = (random.randint(15,int(imWidth/3)), random.randint(15,int(imHeight/3)))   # semimajor and semiminor axes of ellipse
         axes = sorted(axes, reverse=True)   # do descending order, for definiteness
 
-        center = (random.randint(axes[0],imWidth-axes[0]),
-            random.randint(axes[1],imHeight-axes[1]))
-        angle = random.randint(1,179)       # ellipses are symmetric after 180 degree rotation
-        box = get_ellipse_box(center,axes, angle)
+        center = (random.randint(axes[0], imWidth-axes[0]),
+            random.randint(axes[1], imHeight-axes[1]))
+        angle = random.randint(1, 179)       # ellipses are symmetric after 180 degree rotation
+        box = get_ellipse_box(center, axes, angle)
+
         # make sure they don't overlap, and are in bounds of image
-        while(True == does_overlap_previous(box, boxes_arr)
+        # TODO: the following random placement is painfully inefficient
+        trycount, maxtries = 0, 100000
+        while (   ( (True == does_overlap_previous(box, boxes_arr))
             or (box[0]<0) or (box[2] > imWidth)
-            or (box[1]<0) or (box[3] > imHeight)  ):
-
-            # generate new values
-            #print("    Re-doing it")
-            axes = (random.randint(25,int(imWidth/3)), random.randint(25,int(imHeight/3)))
+            or (box[1]<0) or (box[3] > imHeight)  ) and (trycount < maxtries) ):
+            trycount += 1
+            # if there's a problem, then generate new values - "Re-do"
+            axes = (random.randint(25, int(imWidth/3)), random.randint(25, int(imHeight/3)))
             axes = sorted(axes, reverse=True)   # do descending order
-            center = (random.randint(axes[0],imWidth-axes[0]),
-                random.randint(axes[1],imHeight-axes[1]))
-            angle = random.randint(1,180)
-            box = get_ellipse_box(center,axes, angle)
+            center = (random.randint(axes[0], imWidth-axes[0]),
+                random.randint(axes[1], imHeight-axes[1]))
+            angle = random.randint(1, 180)
+            box = get_ellipse_box(center, axes, angle)
 
-        draw_rings(img,center,axes,angle=angle,num_rings=num_rings)
+        if (trycount < maxtries):
+            draw_rings(img, center, axes, angle=angle, num_rings=num_rings)
+            this_caption = "[{0}, {1}, {2}, {3}, {4}, {5}]".format(center[0], center[1],axes[0], axes[1], angle, num_rings)
+        else:   # just skip this antinode
+            print("\n\r",pad,"ERR Can't fit\n",sep="",end="\r")
+            this_caption = ""
 
-        this_caption = "[{0}, {1}, {2}, {3}, {4}, {5}]".format(center[0], center[1],axes[0], axes[1], angle, num_rings)
-        #print(this_caption)
         if (an > 0):
             caption+="\n"
         caption += this_caption
@@ -176,16 +195,6 @@ def draw_antinodes(img,num_antinodes=1):
     return img, caption
 
 
-# TODO: haven't figured out how to pass args when multiprocessing; the following globals should be replaced w/ args at some point
-# for now, we define them globally but set them in __main__
-frame_start = 0
-num_frames = 0
-num_tasks = 0
-frames_per_task= 0
-
-train_only = True           # Only gen fake images for the training set. False= make Test & Val images too
-
-pad_space = 14     # used for spacing out task output
 
 def gen_images_wrapper(task):
     try:
@@ -195,6 +204,7 @@ def gen_images_wrapper(task):
 
 
 def gen_images(task):
+    global pad
     if (train_only):
         dirname = 'Train/'
     else:
@@ -207,21 +217,26 @@ def gen_images(task):
         else:
             dirname = 'Val'    # 20% Val
 
-    #pad = ' '.rjust(pad_space*task)
+    # used for spacing out task output
+    pad_space = max(14, int(round(get_terminal_size().columns / num_tasks)))
     pad = '\033['+str(pad_space*task)+'C'   # ANSI code to move cursor to the right
     if (0==task):
         pad = ''
+    pad = pad + str(task)
+
     task_maxframe = (task+1)*frames_per_task-1
 
     for iframe in range(frames_per_task):
         framenum = frame_start + task * frames_per_task + iframe
         if (0 == framenum % 1):
-            print(pad, task,":",framenum,"/",task_maxframe,sep="",end="\r")
+            print(pad,":",framenum,"/",task_maxframe,sep="",end="\r")
         np_dims = (imHeight, imWidth, 1)                       # for numpy, dimensions are reversed
 
         img = 128*np.ones(np_dims, np.uint8)
 
-        draw_waves(img)
+        #print(pad,":",framenum," DW   ",sep="",end="\r")
+        draw_waves(img)   # this is the main bottleneck, execution-time-wise
+        #print(pad,":",framenum," BDW ",sep="",end="\r")
 
         max_antinodes = 6
         num_antinodes= 6# random.randint(0,max_antinodes)   # should we allow zero antinodes?
@@ -238,12 +253,11 @@ def gen_images(task):
         img = cv2.add(img, noise)
 
         prefix = dirname+'/steelpan_'+str(framenum).zfill(7)
-        #print("Task ", task,": writing with prefix",prefix)
         cv2.imwrite(prefix+'.png',img)
         with open(prefix+".txt", "w") as text_file:
             text_file.write(caption)
 
-    print("\r",pad,task,":Finished",sep="",end="\r")
+    print("\r",pad,":Finished",sep="",end="\r")
 
 
 def gen_fake_espi():
@@ -260,7 +274,6 @@ def gen_fake_espi():
     make_sure_path_exists('Val')
     make_sure_path_exists('Test')
 
-    random.seed(1)
 
     num_procs = mp.cpu_count()
     print(num_procs,"processors available.")
@@ -282,5 +295,7 @@ def gen_fake_espi():
 # --- Main code
 if __name__ == "__main__":
     #global frame_start, num_frames, num_tasks, frames_per_task
+    random.seed(1)
+    np.random.seed(1)
     gen_fake_espi()
 #cv2.destroyAllWindows()
