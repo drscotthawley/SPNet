@@ -19,7 +19,7 @@ from augment_data import *
 from gen_fake_espi import *
 
 def distribute_dataset():
-    print("distribute_dataset: Copying data files (images & txt) to Train/ Val/ and Test/...")
+    print("distribute_dataset: Copying data files (images & txt) from",real_data_dir,"to Train/, Val/ and Test/...")
     # Get list of input files (images and text annotations)
     img_file_list = sorted(glob.glob(real_data_dir+'*.png'))
     #print("img_file_list[0] = ",img_file_list[0])
