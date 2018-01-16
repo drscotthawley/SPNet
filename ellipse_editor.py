@@ -2,7 +2,7 @@
 
 '''
 Ellipse editor, standalone utility for use with steelpan images & annotations
-Author: Scott H. Hawley     no license yet.
+Author: Scott H. Hawley  License: MIT (below)
 
 Reads a CSV file of the format cx,cy,a,b,angle,rings  as in...
 $ cat test_img.csv
@@ -15,14 +15,34 @@ cx,cy,a,b,angle,rings
 To get the corresponding image file, it replaces '.csv' with '.png' in the file name
 
 For more options, run $ ./ellipse_editor.py --help
+
+
+MIT License:
+Copyright (c) 2018 Scott Hawley, https://github.com/drscotthawley
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 '''
 
 
-#TODO:
-# - Add keeping track of # of rings
-
-
 import tkinter as tk
+from tkinter.simpledialog import askinteger
 import math
 import numpy as np
 import pandas as pd
@@ -61,6 +81,19 @@ def poly_oval(cx, cy, a, b, angle=0, steps=100 ):
 
     return point_list
 
+class popupWindow(object):
+    # from https://stackoverflow.com/questions/10020885/creating-a-popup-message-box-with-an-entry-field
+    def __init__(self,master):
+        top=self.top=tk.Toplevel(master)
+        self.l=tk.Label(top,text="How many rings")
+        self.l.pack()
+        self.e=tk.Entry(top)
+        self.e.pack()
+        self.b=tk.Button(top,text='Ok',command=self.cleanup)
+        self.b.pack()
+    def cleanup(self):
+        self.value=self.e.get()
+        self.top.destroy()
 
 class EllipseEditor(tk.Frame):
     '''Edit ellipses for steelpan images'''
@@ -93,6 +126,8 @@ class EllipseEditor(tk.Frame):
         # Define global event bindings
         self.canvas.bind("<B1-Motion>", self.update_readout)
         self.canvas.bind("<Double-Button-1>", self.on_doubleclick)
+        self.canvas.bind("<ButtonPress-2>", self.on_rightpress)
+
         self.canvas.focus_set()
         #self.canvas.bind("<KeyPress>", self.on_keypress, )
         self.canvas.bind("<Q>", self.on_qkey)
@@ -152,12 +187,12 @@ class EllipseEditor(tk.Frame):
             cx, cy = int(row['cx']), int(row['cy'])
             a, b = int(row['a']), int(row['b'])
             angle, rings = float(row['angle']), int(row['rings'])
-            self._create_token((cx, cy), (a, b), angle, self.color)
+            self._create_token((cx, cy), (a, b), angle, rings, self.color)
         self.update_readout(None)
 
 
 
-    def _create_token(self, coord, axes, angle, color):
+    def _create_token(self, coord, axes, angle, rings, color):
         '''Create a token at the given coordinate in the given color'''
         self._numtokens += 1
         (x,y) = coord
@@ -172,9 +207,11 @@ class EllipseEditor(tk.Frame):
         h_a = self.canvas.create_oval(h_a_x-self.hr, h_a_y-self.hr, h_a_x+self.hr, h_a_y+self.hr, outline=color, fill=color, width=3, tags=(thistag,"handle","axis_a"))
         h_b = self.canvas.create_oval(h_b_x-self.hr, h_b_y-self.hr, h_b_x+self.hr, h_b_y+self.hr, outline=color, fill="blue", width=3, tags=(thistag,"handle","axis_b"))
 
-        self._token_data.append([oval,h_a,h_b])
+        ringtext = self.canvas.create_text(x-5, y-10, text=str(rings), anchor=tk.NW, font=tk.font.Font(size=20), fill=color, tags=(thistag,"ringtext"))
 
-        # Define Event Bindings for ellipses
+        self._token_data.append([oval,h_a,h_b,ringtext])
+
+        # Define Event Bindings for moving objects around
         self.canvas.tag_bind("main", "<ButtonPress-1>", self.on_main_press)
         self.canvas.tag_bind("main", "<ButtonRelease-1>", self.on_main_release)
         self.canvas.tag_bind("main", "<B1-Motion>", self.on_main_motion)
@@ -203,10 +240,8 @@ class EllipseEditor(tk.Frame):
 
     def on_main_press(self, event):
         '''Begining drag of an object'''
-        # record the item and its location
-        obj_id = self.canvas.find_closest(event.x, event.y)[0]
+        obj_id = self.canvas.find_closest(event.x, event.y)[0]  # record the item and its location
         tags = self.canvas.gettags( obj_id )
-        #print("Main:  ids, tags = ",ids, tags)
         self._drag_data["items"] = tags[0]
         self._drag_data["x"] = event.x
         self._drag_data["y"] = event.y
@@ -238,7 +273,7 @@ class EllipseEditor(tk.Frame):
     def retrieve_ellipse_info(self, tokentag):
         # retrieves info for whichever single ellipse is currently being manipulated
         tokenitems = self.canvas.find_withtag( tokentag )
-        [main_id, axis_a_id, axis_b_id ]= tokenitems
+        [main_id, axis_a_id, axis_b_id, ringtext_id ]= tokenitems
 
         ell_coords = self.canvas.coords(main_id)   # coordinates of all points in ellipse
         cxoords, cyoords = ell_coords[0::2],  ell_coords[1::2]
@@ -254,7 +289,9 @@ class EllipseEditor(tk.Frame):
 
         angle = np.rad2deg( np.arctan2( cy - h_a_y, h_a_x - cx) )
 
-        return cx, cy, a, b, angle, ell_coords
+        rings = int(self.canvas.itemcget(ringtext_id, 'text'))
+
+        return cx, cy, a, b, angle, rings, ell_coords
 
 
     def update_df(self):
@@ -267,7 +304,7 @@ class EllipseEditor(tk.Frame):
         # record the item and its location
         ids = self.canvas.find_closest(event.x, event.y)[0]
         tags = self.canvas.gettags( ids )
-        self._drag_data["items"] = self.canvas.find_closest(event.x, event.y)[0]
+        self._drag_data["items"] = ids
         self._drag_data["x"] = event.x
         self._drag_data["y"] = event.y
 
@@ -290,11 +327,11 @@ class EllipseEditor(tk.Frame):
         # what are the tags for this particular handle
         tags = self.canvas.gettags( self._drag_data["items"] )
         tokentag = tags[0]
-        cx, cy, a, b, angle, coords  = self.retrieve_ellipse_info( tokentag )
+        cx, cy, a, b, angle, rings, coords  = self.retrieve_ellipse_info( tokentag )
         #print(" Hey: cx, cy, a, b, angle = ",cx, cy, a, b, angle)
 
         tokenitems = self.canvas.find_withtag( tokentag )
-        [main_id, axis_a_id, axis_b_id ]= tokenitems
+        [main_id, axis_a_id, axis_b_id, ringtext_id ]= tokenitems
 
         new_r = np.sqrt( (event.x -cx)**2 + (event.y - cy)**2 )
         new_angle = np.rad2deg( np.arctan2( cy-oldy, oldx-cx) )
@@ -322,11 +359,20 @@ class EllipseEditor(tk.Frame):
         self._drag_data["x"] = event.x
         self._drag_data["y"] = event.y
 
+
     def on_doubleclick(self, event):  # create a new ellipse
-        cx, cy = event.x, event.y
-        a, b = 50, 50
-        angle = 0
-        self._create_token((cx, cy), (a, b), angle, self.color)
+        cx, cy, a, b, angle, rings = event.x, event.y, 50, 50, 0, 1     # give it some default data
+        self._create_token((cx, cy), (a, b), angle, rings, self.color)
+        self.update_readout(None)
+
+    def on_rightpress(self,event):
+        obj_id = self.canvas.find_closest(event.x, event.y)[0]
+        tags = self.canvas.gettags( obj_id )
+        #print("Right press detected! obj_id = ",obj_id, ", tags = ",tags)
+        ringtext = self.canvas.itemcget(obj_id, 'text')
+        result = askinteger("How many rings", "How many rings?", initialvalue=int(ringtext), minvalue=1)
+        self.canvas.itemconfigure(obj_id,text=str(result))
+        self.canvas.focus_set()           # that dialog box stole the focus. get it back
         self.update_readout(None)
 
     def update_readout(self, event):
@@ -337,8 +383,8 @@ class EllipseEditor(tk.Frame):
         # first we update the dataframe info
         for main_id in mains:
             tokentag = self.canvas.gettags( main_id )[0]
-            cx, cy, a, b, angle, coords = self.retrieve_ellipse_info( tokentag )
-            new_df = new_df.append({'cx':cx, 'cy':cy, 'a':a, 'b':b, 'angle':angle, 'rings':0},ignore_index=True)
+            cx, cy, a, b, angle, rings, coords = self.retrieve_ellipse_info( tokentag )
+            new_df = new_df.append({'cx':cx, 'cy':cy, 'a':a, 'b':b, 'angle':angle, 'rings':rings},ignore_index=True)
             #self.infostr += '[{:4d}, {:4d}, {:4d}, {:4d}, {:6.2f}]\n'.format(int(cx), int(cy), int(a), int(b), angle)
 
         self.df = new_df
@@ -398,14 +444,15 @@ if __name__ == "__main__":
     print("Instructions:")
     print(" Mouse bindings:")
     print("    - Double-click to create ellipse")
-    print("    - Click and drag to move ellipse")
-    print("    - Click and drag 'handles' to resize/rotate ellipse (solid = 'a', hollow = 'b')")
+    print("    - Left-click and drag inside ellipse (but not on a number) to move ellipse")
+    print("    - Left-click and drag 'handles' to resize/rotate ellipse (solid = 'a', hollow = 'b')")
+    print("    - Right-click inside number to change ring count")
     print("    - Drag off-screen to destroy/delete ellipse")
     print(" Key bindings:")
     print("    - Right Arrow : Next file")
-    print("    - Left Arrow : Previous file")
-    print("    - S : Save metadata")
-    print("    - Q : Quit")
+    print("    - Left Arrow  : Previous file")
+    print("    - S           : Save metadata")
+    print("    - Q           : Quit")
 
 
     root = tk.Tk()
