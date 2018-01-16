@@ -1,24 +1,39 @@
 #! /usr/bin/env python3
 
-# Ellipse editor, standalone utility for use with steelpan images & annotations
-# Author: Scott H. Hawley     no license yet.
+'''
+Ellipse editor, standalone utility for use with steelpan images & annotations
+Author: Scott H. Hawley     no license yet.
+
+Reads a CSV file of the format cx,cy,a,b,angle,rings  as in...
+$ cat test_img.csv
+cx,cy,a,b,angle,rings
+37,42,30,42,63,0
+402,71,37,20,41,0
+459,256,40,19,45,0
+175,198,41,30,134,0
+
+To get the corresponding image file, it replaces '.csv' with '.png' in the file name
+
+For more options, run $ ./ellipse_editor.py --help
+'''
+
 
 #TODO:
-# - Add text file read option
-# - Add text file save option
 # - Add keeping track of # of rings
 
 
 import tkinter as tk
 import math
 import numpy as np
+import pandas as pd
 from PIL import Image, ImageTk
 import tkinter.font
 import argparse
 import os
 import glob
+import sys
 
-def poly_oval(xc, yc, a, b, angle=0, steps=100 ):
+def poly_oval(cx, cy, a, b, angle=0, steps=100 ):
     # From https://mail.python.org/pipermail/python-list/2000-December/022013.html
     """return an oval as coordinates suitable for create_polygon"""
 
@@ -41,17 +56,16 @@ def poly_oval(xc, yc, a, b, angle=0, steps=100 ):
         x = (x1 * math.cos(rotation)) + (y1 * math.sin(rotation))
         y = (y1 * math.cos(rotation)) - (x1 * math.sin(rotation))
 
-        point_list.append((x + xc))
-        point_list.append((y + yc))
+        point_list.append((x + cx))
+        point_list.append((y + cy))
 
     return point_list
-
 
 
 class EllipseEditor(tk.Frame):
     '''Edit ellipses for steelpan images'''
 
-    def __init__(self, parent, img_file, txt_file):
+    def __init__(self, parent, meta_file_list, img_file_list):
         tk.Frame.__init__(self, parent)
 
         # create a canvas
@@ -59,17 +73,14 @@ class EllipseEditor(tk.Frame):
         self.readout = 300
         self.canvas = tk.Canvas(width=self.width + self.readout, height=self.height )
         self.canvas.pack(fill="both", expand=True)
-        self.img_file = img_file
-        self.txt_file = txt_file
+        self.file_index = 0
+        self.img_file_list = img_file_list
+        self.meta_file_list = meta_file_list
+        self.img_file = img_file_list[self.file_index]
+        self.meta_file = meta_file_list[self.file_index]
 
         self.color = "green"
 
-        image = Image.open(img_file)
-        tkimage = ImageTk.PhotoImage(image=image)
-        label = tk.Label(image=tkimage)
-        label.image = tkimage # keep a reference!
-        #label.pack()
-        self.canvas.create_image(self.width/2,self.height/2, image=tkimage)
 
         # this data is used to keep track of an
         # item being dragged
@@ -79,21 +90,69 @@ class EllipseEditor(tk.Frame):
         self._numtokens = 0
         self.hr = 3             # handle radius
 
-        # global bindings
-        self.canvas.tag_bind(tk.ALL, "<B1-Motion>", self.update_readout)
-        self.canvas.tag_bind(tk.ALL, "<Double-Button-1>", self.on_doubleclick)
+        # Define global event bindings
+        self.canvas.bind("<B1-Motion>", self.update_readout)
+        self.canvas.bind("<Double-Button-1>", self.on_doubleclick)
+        self.canvas.focus_set()
+        #self.canvas.bind("<KeyPress>", self.on_keypress, )
+        self.canvas.bind("<Q>", self.on_qkey)
+        self.canvas.bind("<q>", self.on_qkey)
+        self.canvas.bind("<S>", self.on_skey)
+        self.canvas.bind("<s>", self.on_skey)
+        self.canvas.bind("<Left>", self.on_leftarrow)
+        self.canvas.bind("<Right>", self.on_rightarrow)
 
+        self.infostr = ""
+        self.text = self.canvas.create_text(self.width+10, 10, text=self.infostr, anchor=tk.NW, font=tk.font.Font(size=16,family='Consolas'))
+        '''
+        # read image and metadata files
+        self.image = Image.open(self.img_file)
+        self.tkimage = ImageTk.PhotoImage(image=self.image)
+        self.label = tk.Label(image=self.tkimage)
+        self.label.image = self.tkimage # keep a reference!
+        self.canvas.create_image(self.width/2,self.height/2, image=self.tkimage)
+        '''
+        '''
+        self.df = pd.read_csv(self.meta_file)  # read metadata file
+        # assign  ellipse tokens (and their handles)
+        for index, row in self.df.iterrows() :
+            #print(row['A'], row['B'])
+            cx, cy = int(row['cx']), int(row['cy'])
+            a, b = int(row['a']), int(row['b'])
+            angle, rings = float(row['angle']), int(row['rings'])
+            self._create_token((cx, cy), (a, b), angle, self.color)
+        self.update_readout(None)
+        '''
+        self.df = ''
 
-        self.infostr = self.img_file
-        self.text = self.canvas.create_text(self.width+10, 10, text=self.infostr, anchor=tk.NW, font=tk.font.Font(size=16))
+        self.load_new_files()
 
-        # create some ellipse tokens (and their handles)
-        n_obj = 6
-        for i in range(n_obj):
-            xc, yc = int(np.random.rand()*self.width), int(np.random.rand()*self.height)
-            a, b = int(np.random.rand()*self.width/3), int(np.random.rand()*self.height/3)
-            angle = int(np.random.rand()*180)
-            self._create_token((xc, yc), (a, b), angle, self.color)
+    def load_new_files(self):
+        self.canvas.delete("all")  #destroy old tokens
+        self.text = self.canvas.create_text(self.width+10, 10, text=self.infostr, anchor=tk.NW, font=tk.font.Font(size=16,family='Consolas'))
+
+        self.img_file = img_file_list[self.file_index]
+        self.meta_file = meta_file_list[self.file_index]
+        self.read_assign_image()
+        self.read_assign_csv()
+
+    def read_assign_image(self):
+        self.image = Image.open(self.img_file)
+        self.tkimage = ImageTk.PhotoImage(image=self.image)
+        self.label = tk.Label(image=self.tkimage)
+        self.label.image = self.tkimage # keep a reference!
+        #label.pack()
+        self.canvas.create_image(self.width/2,self.height/2, image=self.tkimage)
+
+    def read_assign_csv(self):
+        self.df = pd.read_csv(self.meta_file)  # read metadata file
+        # assign  ellipse tokens (and their handles)
+        for index, row in self.df.iterrows() :
+            #print(row['A'], row['B'])
+            cx, cy = int(row['cx']), int(row['cy'])
+            a, b = int(row['a']), int(row['b'])
+            angle, rings = float(row['angle']), int(row['rings'])
+            self._create_token((cx, cy), (a, b), angle, self.color)
         self.update_readout(None)
 
 
@@ -104,7 +163,7 @@ class EllipseEditor(tk.Frame):
         (x,y) = coord
         (a,b) = axes
         #self.canvas.create_oval(x-a, y-b, x+a, y+b, outline=color, fill=None, width=3, tags="token")
-        thistag = "token"+str(self._numtokens)
+        thistag = "token"+str(self._numtokens)   # each token gets its own unique id, plus the whole ellipse gets a 'main' tag
         oval = self.canvas.create_polygon(*tuple(poly_oval(x, y, a, b, angle=angle)),outline=color, fill='', width=3, tags=(thistag,"main"))
 
         # handles for resize / rotation
@@ -115,6 +174,7 @@ class EllipseEditor(tk.Frame):
 
         self._token_data.append([oval,h_a,h_b])
 
+        # Define Event Bindings for ellipses
         self.canvas.tag_bind("main", "<ButtonPress-1>", self.on_main_press)
         self.canvas.tag_bind("main", "<ButtonRelease-1>", self.on_main_release)
         self.canvas.tag_bind("main", "<B1-Motion>", self.on_main_motion)
@@ -122,6 +182,23 @@ class EllipseEditor(tk.Frame):
         self.canvas.tag_bind("handle", "<ButtonPress-1>", self.on_handle_press)
         self.canvas.tag_bind("handle", "<ButtonRelease-1>", self.on_handle_release)
         self.canvas.tag_bind("handle", "<B1-Motion>", self.on_handle_motion)
+
+    def on_qkey(self, event):
+        print("Quitting")
+        sys.exit()
+    def on_skey(self,event):
+        print("Saving file ",self.meta_file)
+        self.df.astype('int32').to_csv(self.meta_file,index=False)
+    def on_rightarrow(self,event):
+        self.file_index += 1
+        if (self.file_index >= len(meta_file_list)):
+            self.file_index = 0
+        self.load_new_files()
+    def on_leftarrow(self,event):
+        self.file_index -= 1
+        if (self.file_index < 0):
+            self.file_index = len(meta_file_list)-1
+        self.load_new_files()
 
 
     def on_main_press(self, event):
@@ -159,25 +236,30 @@ class EllipseEditor(tk.Frame):
 
 
     def retrieve_ellipse_info(self, tokentag):
+        # retrieves info for whichever single ellipse is currently being manipulated
         tokenitems = self.canvas.find_withtag( tokentag )
         [main_id, axis_a_id, axis_b_id ]= tokenitems
 
         ell_coords = self.canvas.coords(main_id)   # coordinates of all points in ellipse
-        xcoords, ycoords = ell_coords[0::2],  ell_coords[1::2]
-        xc, yc = np.mean( xcoords ),  np.mean( ycoords )   # coordinates of center of ellipse
+        cxoords, cyoords = ell_coords[0::2],  ell_coords[1::2]
+        cx, cy = np.mean( cxoords ),  np.mean( cyoords )   # coordinates of center of ellipse
 
         h_a_coords = self.canvas.coords(axis_a_id)
         h_a_x, h_a_y = np.mean( h_a_coords[0::2] ),  np.mean( h_a_coords[1::2] )
-        a = np.sqrt( (h_a_x - xc)**2 + (h_a_y - yc)**2 )
+        a = np.sqrt( (h_a_x - cx)**2 + (h_a_y - cy)**2 )
 
         h_b_coords = self.canvas.coords(axis_b_id)
         h_b_x, h_b_y = np.mean( h_b_coords[0::2] ),  np.mean( h_b_coords[1::2] )
-        b = np.sqrt( (h_b_x - xc)**2 + (h_b_y - yc)**2 )
+        b = np.sqrt( (h_b_x - cx)**2 + (h_b_y - cy)**2 )
 
-        angle = np.rad2deg( np.arctan2( yc - h_a_y, h_a_x - xc) )
+        angle = np.rad2deg( np.arctan2( cy - h_a_y, h_a_x - cx) )
 
-        return xc, yc, a, b, angle, ell_coords
+        return cx, cy, a, b, angle, ell_coords
 
+
+    def update_df(self):
+        # iterate through all ellipses -- i.e. tokens with with 'main' tag
+        tokenitems = self.canvas.find_withtag( 'main' )
 
 
     def on_handle_press(self, event):
@@ -208,28 +290,28 @@ class EllipseEditor(tk.Frame):
         # what are the tags for this particular handle
         tags = self.canvas.gettags( self._drag_data["items"] )
         tokentag = tags[0]
-        xc, yc, a, b, angle, coords  = self.retrieve_ellipse_info( tokentag )
-        #print(" Hey: xc, yc, a, b, angle = ",xc, yc, a, b, angle)
+        cx, cy, a, b, angle, coords  = self.retrieve_ellipse_info( tokentag )
+        #print(" Hey: cx, cy, a, b, angle = ",cx, cy, a, b, angle)
 
         tokenitems = self.canvas.find_withtag( tokentag )
         [main_id, axis_a_id, axis_b_id ]= tokenitems
 
-        new_r = np.sqrt( (event.x -xc)**2 + (event.y - yc)**2 )
-        new_angle = np.rad2deg( np.arctan2( yc-oldy, oldx-xc) )
+        new_r = np.sqrt( (event.x -cx)**2 + (event.y - cy)**2 )
+        new_angle = np.rad2deg( np.arctan2( cy-oldy, oldx-cx) )
 
         # which handle is currently being manipulated?
         if ("axis_a" in tags):
             b_coords = self.canvas.coords(axis_b_id)
             h_b_x, h_b_y = np.mean( b_coords[0::2] ),  np.mean( b_coords[1::2] )
-            new_coords = poly_oval( xc, yc, new_r, b, angle=new_angle)
-            h_b_x, h_b_y =  xc + b*np.sin(np.deg2rad(new_angle)),  yc + b*np.cos(np.deg2rad(new_angle))
+            new_coords = poly_oval( cx, cy, new_r, b, angle=new_angle)
+            h_b_x, h_b_y =  cx + b*np.sin(np.deg2rad(new_angle)),  cy + b*np.cos(np.deg2rad(new_angle))
             self.canvas.coords(axis_b_id, [ h_b_x-self.hr, h_b_y-self.hr, h_b_x+self.hr, h_b_y+self.hr] )
         elif ("axis_b" in tags):
             a_coords = self.canvas.coords(axis_a_id)
             h_a_x, h_a_y = np.mean( a_coords[0::2] ),  np.mean( a_coords[1::2] )
             new_angle = new_angle + 90   # a and b axes are offset by 90 degrees; angle is defined relative to a axis
-            new_coords = poly_oval( xc, yc, a, new_r, angle=new_angle)
-            h_a_x, h_a_y =  xc + a*np.cos(np.deg2rad(new_angle)),  yc - a*np.sin(np.deg2rad(new_angle))
+            new_coords = poly_oval( cx, cy, a, new_r, angle=new_angle)
+            h_a_x, h_a_y =  cx + a*np.cos(np.deg2rad(new_angle)),  cy - a*np.sin(np.deg2rad(new_angle))
             self.canvas.coords(axis_a_id, [ h_a_x-self.hr, h_a_y-self.hr, h_a_x+self.hr, h_a_y+self.hr] )
         else:
             print("Error: bad tags")
@@ -241,37 +323,91 @@ class EllipseEditor(tk.Frame):
         self._drag_data["y"] = event.y
 
     def on_doubleclick(self, event):  # create a new ellipse
-        xc, yc = event.x, event.y
+        cx, cy = event.x, event.y
         a, b = 50, 50
         angle = 0
-        self._create_token((xc, yc), (a, b), angle, self.color)
+        self._create_token((cx, cy), (a, b), angle, self.color)
         self.update_readout(None)
 
     def update_readout(self, event):
         mains = self.canvas.find_withtag( "main" )
-        self.infostr = self.img_file+':\n'
+        self.infostr = self.meta_file+', '+self.img_file+':\n\n'
+
+        new_df = pd.DataFrame(columns=self.df.columns,dtype='int32')
+        # first we update the dataframe info
         for main_id in mains:
             tokentag = self.canvas.gettags( main_id )[0]
-            xc, yc, a, b, angle, coords = self.retrieve_ellipse_info( tokentag )
-            self.infostr += '[{:4d}, {:4d}, {:4d}, {:4d}, {:6.2f}]\n'.format(int(xc), int(yc), int(a), int(b), angle)
-        self.canvas.itemconfigure(self.text, text=self.infostr)
+            cx, cy, a, b, angle, coords = self.retrieve_ellipse_info( tokentag )
+            new_df = new_df.append({'cx':cx, 'cy':cy, 'a':a, 'b':b, 'angle':angle, 'rings':0},ignore_index=True)
+            #self.infostr += '[{:4d}, {:4d}, {:4d}, {:4d}, {:6.2f}]\n'.format(int(cx), int(cy), int(a), int(b), angle)
+
+        self.df = new_df
+        self.infostr += self.df.astype('int32').to_string(index=False,justify='right')      # then we output the dataframe info to a string
+        #print(self.infostr)
+        self.canvas.itemconfigure(self.text, text=self.infostr)   # then we re-assign the text widget with the new string
+
+
+def setup_file_lists(file_args):
+    meta_file_list = []
+    img_file_list = []
+    return_code = 0
+
+    # first iterate through the arugment list and if an arg is a directory, than grab names of all the csv files in it
+    for path in file_args:
+        if os.path.isdir(path):
+            dir_csv_list = glob.glob(path+'/*.csv')
+            meta_file_list += dir_csv_list
+        else:
+            meta_file_list.append(path)
+
+    #print("meta_file_list = ",meta_file_list)
+    # for each file in meta_file_list, make sure both it and its corresponding image exists.
+    # For any problems, rase the return code
+    for meta_file in meta_file_list:
+        if os.path.exists(meta_file):
+            img_file = os.path.splitext(meta_file)[0]+'.png'
+            if os.path.exists(img_file):
+                img_file_list.append(img_file)
+            else:
+                print("Error, image file ",img_file,"does not exist.")
+                return_code = -1
+        else:
+            print("Error, metadata file ",meta_file,"does not exist.")
+            return_code = -1
+    if (len(meta_file_list) != len(img_file_list)):
+        print("Error: Lists of unequal length")
+        return_code = -1
+
+    print(len(meta_file_list),"files to be loaded.")
+    return meta_file_list, img_file_list, return_code
 
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description='Edit a file set of files.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(description='Edit a file or set of files.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     #parser.add_argument('file', nargs='+', help='Path of a file or a list of files.')
-    parser.add_argument('file', nargs='+', help='Path of a file or a list of files.')
+    parser.add_argument('file', nargs='+', help='Path of a CSV file, or a list of CSV files, or a directory from which to read all CSV files.')
     args = parser.parse_args()
-    files = list(args.file)
-    print("files = ",files)
+    file_args = list(args.file)
+
+    meta_file_list, img_file_list, rc = setup_file_lists(file_args)
+    if (0 != rc):
+        print("Problem reading file lists, aborting")
+        sys.exit(-1)
 
     print("Instructions:")
-    print("- Double-click to create ellipse")
-    print("- Click and drag to move ellipse")
-    print("- Click and drag 'handles' to resize/rotate ellipse (solid = 'a', hollow = 'b')")
-    print("- Drag off-screen to destroy/delete ellipse")
+    print(" Mouse bindings:")
+    print("    - Double-click to create ellipse")
+    print("    - Click and drag to move ellipse")
+    print("    - Click and drag 'handles' to resize/rotate ellipse (solid = 'a', hollow = 'b')")
+    print("    - Drag off-screen to destroy/delete ellipse")
+    print(" Key bindings:")
+    print("    - Right Arrow : Next file")
+    print("    - Left Arrow : Previous file")
+    print("    - S : Save metadata")
+    print("    - Q : Quit")
+
 
     root = tk.Tk()
-    EllipseEditor(root, 'test_img.png', 'test_img.txt').pack(fill="both", expand=True)
+    EllipseEditor(root, meta_file_list, img_file_list ).pack(fill="both", expand=True)
     root.mainloop()
