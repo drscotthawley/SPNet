@@ -4,7 +4,7 @@
 Ellipse editor, standalone utility for use with steelpan images & annotations
 Author: Scott H. Hawley  License: MIT (below)
 
-Reads a CSV file of the format cx,cy,a,b,angle,rings  as in...
+Reads a CSV file of the format cx,cy,a,b,angle,rings  (a & b are ellipse axes), as in..
 $ cat test_img.csv
 cx,cy,a,b,angle,rings
 37,42,30,42,63,0
