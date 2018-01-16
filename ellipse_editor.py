@@ -81,20 +81,6 @@ def poly_oval(cx, cy, a, b, angle=0, steps=100 ):
 
     return point_list
 
-class popupWindow(object):
-    # from https://stackoverflow.com/questions/10020885/creating-a-popup-message-box-with-an-entry-field
-    def __init__(self,master):
-        top=self.top=tk.Toplevel(master)
-        self.l=tk.Label(top,text="How many rings")
-        self.l.pack()
-        self.e=tk.Entry(top)
-        self.e.pack()
-        self.b=tk.Button(top,text='Ok',command=self.cleanup)
-        self.b.pack()
-    def cleanup(self):
-        self.value=self.e.get()
-        self.top.destroy()
-
 class EllipseEditor(tk.Frame):
     '''Edit ellipses for steelpan images'''
 
@@ -115,8 +101,7 @@ class EllipseEditor(tk.Frame):
         self.color = "green"
 
 
-        # this data is used to keep track of an
-        # item being dragged
+        # this data is used to keep track of an item being dragged
         self._drag_data = {"x": 0, "y": 0, "items": None}
 
         self._token_data = []
@@ -139,25 +124,6 @@ class EllipseEditor(tk.Frame):
 
         self.infostr = ""
         self.text = self.canvas.create_text(self.width+10, 10, text=self.infostr, anchor=tk.NW, font=tk.font.Font(size=16,family='Consolas'))
-        '''
-        # read image and metadata files
-        self.image = Image.open(self.img_file)
-        self.tkimage = ImageTk.PhotoImage(image=self.image)
-        self.label = tk.Label(image=self.tkimage)
-        self.label.image = self.tkimage # keep a reference!
-        self.canvas.create_image(self.width/2,self.height/2, image=self.tkimage)
-        '''
-        '''
-        self.df = pd.read_csv(self.meta_file)  # read metadata file
-        # assign  ellipse tokens (and their handles)
-        for index, row in self.df.iterrows() :
-            #print(row['A'], row['B'])
-            cx, cy = int(row['cx']), int(row['cy'])
-            a, b = int(row['a']), int(row['b'])
-            angle, rings = float(row['angle']), int(row['rings'])
-            self._create_token((cx, cy), (a, b), angle, self.color)
-        self.update_readout(None)
-        '''
         self.df = ''
 
         self.load_new_files()
@@ -431,7 +397,6 @@ def setup_file_lists(file_args):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Edit a file or set of files.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    #parser.add_argument('file', nargs='+', help='Path of a file or a list of files.')
     parser.add_argument('file', nargs='+', help='Path of a CSV file, or a list of CSV files, or a directory from which to read all CSV files.')
     args = parser.parse_args()
     file_args = list(args.file)
