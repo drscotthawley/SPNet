@@ -47,7 +47,7 @@ The following assumes SPNet/ is in your home directory, and you're on a Unix-lik
 2. From the directory where `zooniverse_labeled_dataset.csv` resides, place all relevant images in a sub-directory `zooniverse_steelpan/`
 3. From within same directory as `zooniverse_labeled_dataset.csv`, run the `parse_zooniverse_csv.py` utility, e.g. run `cd ~/datasets; ~/SPNet/parse_zooniverse_csv.py`.   This will place both images and new .csv files in a new directory called  `parsed_zooniverze_steelpan/`.  
 4. As a check, list what's in the output directory: `ls parsed_zooniverze_steelpan/`
-5. As a check, try editing these images, e.g. ` ~/SPNet/ellipse_editor.py parsed_zooniverze_steelpan`
+5. As a check, try editing these images, e.g. ` ~/SPNet/ellipse_editor.py parsed_zooniverze_steelpan/*`
 6. Now switch to the SPNet/ directory: `cd ~/SPNet`
 7. "Set Up" the Data: Run `./setup_data.py`.  This will segment the dataset into Train, Val & Test subsets,
 *and* do augmentation on (only) the Train/ data.  (If later you want to re-augment, you can run `augment_data.py` alone.)   Note:The augmentation will also include synthetic data.
