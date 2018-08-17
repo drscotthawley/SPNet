@@ -18,10 +18,10 @@ from utils import *
 from scipy.optimize import curve_fit
 
 
-def calc_errors(Yp, Yt):  #index = 2 is where the ring count is stored.
-                             # Yp & Yt have already been 'denormalized' at this point
-    max_pred_antinodes = int(Yt.shape[1]/vars_per_pred)
-    diff = Yp - Yt
+def calc_errors(Yp, Yv):  #index = 2 is where the ring count is stored.
+                             # Yp & Yv have already been 'denormalized' at this point
+    max_pred_antinodes = int(Yv.shape[1]/vars_per_pred)
+    diff = Yp - Yv
     # pixel error in antinode centers
     pix_err = np.sqrt(diff[:,0]**2 + diff[:,1]**2)
     ipem = np.argmax(pix_err)               # index of pixel error maximum
@@ -29,16 +29,16 @@ def calc_errors(Yp, Yt):  #index = 2 is where the ring count is stored.
     # number of ring miscounts
     miscounts = 0
     total_obj = 0                           # total is the number of true objects
-    for j in range(Yt.shape[0]):
+    for j in range(Yv.shape[0]):
         for an in range(max_pred_antinodes):
             ind = ind_rings + an * vars_per_pred
-            rings_t = int(round(Yt[j,ind]))
+            rings_t = int(round(Yv[j,ind]))
             i_noobj = ind_noobj + an * vars_per_pred
-            if (0 == int(round(Yt[j,i_noobj])) ):   # Is there supposed to be an object there? If so, count the rings
+            if (0 == int(round(Yv[j,i_noobj])) ):   # Is there supposed to be an object there? If so, count the rings
                 total_obj += 1
                 if (int(round(Yp[j,ind])) != rings_t): # compare integer ring counts
                     miscounts += 1
-            elif (int(round(Yt[j,i_noobj])) != int(round(Yp[j,i_noobj]))):  # consider false background as a mistake
+            elif (int(round(Yv[j,i_noobj])) != int(round(Yp[j,i_noobj]))):  # consider false background as a mistake
                 miscounts += 1
 
 
@@ -125,11 +125,11 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             class_loss_hist.append(class_loss)
 
             # calc some errors.  first transform back into regular 'world' values via de-normalization
-            Yt = denorm_Y(Y_val)     # t is for true
+            Yv = denorm_Y(Y_val)     # t is for true
             Yp = denorm_Y(Y_pred)
 
             # A few metrics
-            ring_miscounts, total_obj, pix_err, ipem = calc_errors(Yp, Yt)
+            ring_miscounts, total_obj, pix_err, ipem = calc_errors(Yp, Yv)
             class_acc = (total_obj-ring_miscounts)*1.0/total_obj*100
             acc_hist.append( class_acc )
 
@@ -141,14 +141,14 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             # Plot centroids
             num_plot = 45                           # number of images to plot centroids for
             ax = plt.subplot(131, autoscale_on=False, aspect=orig_img_dims[0]*1.0/orig_img_dims[1], xlim=[0,orig_img_dims[0]], ylim=[0,orig_img_dims[1]])
-            for an in range( int(Yt.shape[1]/vars_per_pred)):
+            for an in range( int(Yv.shape[1]/vars_per_pred)):
                 ind = ind_cx + an * vars_per_pred
                 # let's not plot non-objects
                 if (0==an):
-                    ax.plot(Yt[0:num_plot,ind],Yt[0:num_plot,ind+1],'ro', label="Expected")
+                    ax.plot(Yv[0:num_plot,ind],Yv[0:num_plot,ind+1],'ro', label="Expected")
                     ax.plot(Yp[0:num_plot,ind],Yp[0:num_plot,ind+1],'go', label="Predicted")
                 else:
-                    ax.plot(Yt[0:num_plot,ind],Yt[0:num_plot,ind+1],'ro')
+                    ax.plot(Yv[0:num_plot,ind],Yv[0:num_plot,ind+1],'ro')
                     ax.plot(Yp[0:num_plot,ind],Yp[0:num_plot,ind+1],'go')
             ax.set_title('Sample Centroids (cx, cy)')
             ax.legend(loc='upper right', fancybox=True, framealpha=0.8)
@@ -204,7 +204,7 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
                 self.writer.add_summary(summary, step)
                 #writer.close()
 
-            show_pred_ellipses(Yt, Yp, val_file_list, log_dir=self.log_dir, ind_extra=ipem)
+            show_pred_ellipses(Yv, Yp, val_file_list, log_dir=self.log_dir, ind_extra=ipem)
 
             # Print additional diagnostics
             print("    In whole val dataset:")
@@ -229,7 +229,7 @@ def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0):
 #    testpath="Test/"
 #    X_test, Y_test, img_dims, test_file_list  = build_dataset(path=testpath, load_frac=fraction)
     valpath="Val/"
-    X_val, Y_val, img_dims, val_file_list, pred_shape  = build_dataset(path=valpath, load_frac=fraction, set_means_ranges=False, batch_size=batch_size)
+    X_val, Y_val, img_dims, val_file_list, pred_shape  = build_dataset(path=valpath, load_frac=1.0, set_means_ranges=False, batch_size=batch_size)
 
     print("Instantiating model...")
     parallel=True
@@ -246,12 +246,12 @@ def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0):
     earlystopping = EarlyStopping(patience=patience)
     myprogress = MyProgressCallback(X_val=X_val, Y_val=Y_val, val_file_list=val_file_list, log_dir=log_dir, pred_shape=pred_shape)
 
-    frozen_epochs = 0;  #MobileNet is robust enough that I don't need to pre-train my final layers first
+    frozen_epochs = 30;  # how many epochs to first run with last layers of model frozen
     later_epochs = 400
 
     # early training with partially-frozen pre-trained model
     model.fit(X_train, Y_train, batch_size=batch_size, epochs=frozen_epochs, shuffle=True,
-              verbose=1, validation_data=(X_val, Y_val), callbacks=[checkpointer,earlystopping,tensorboard,myprogress])
+              verbose=1, validation_data=(X_val, Y_val), callbacks=[earlystopping,tensorboard,myprogress])
     model = unfreeze_model(model, X_train, Y_train, parallel=parallel)
 
     # main training block

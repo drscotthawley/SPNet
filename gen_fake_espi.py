@@ -28,6 +28,7 @@ winName = 'ImgWindowName'
 imWidth = 512
 imHeight = 384
 
+meta_extension = ".csv"     # file extension for metadata files
 
 # Define some colors: openCV uses BGR instead of RGB
 blue = (255,0,0)
@@ -37,20 +38,21 @@ white = (255)
 black = (0)
 grey = (128)
 
-blur_prob = 0.5    # probability that an image gets blurred
+blur_prob = 0.9    # probability that an image gets blurred
 
 # TODO: haven't figured out how to pass args when multiprocessing; the following globals should be replaced w/ args at some point
 # for now, we define them globally but set them in __main__
+# TODO: actually, can use partial() to pass args.  Need to update this.
 frame_start = 0
 num_frames = 0
 num_tasks = 0
 frames_per_task= 0
 
-train_only = True           # Only gen fake images for the training set. False= make Test & Val images too
+train_only_global = True           # Only gen fake images for the training set. False= make Test & Val images too
 pad = ''
 
 
-def blur_image(img, kernel_size=3):
+def blur_image(img, kernel_size=7):
     if (0==kernel_size):
         return img
     new_img = img#.copy()
@@ -154,12 +156,18 @@ def draw_antinodes(img,num_antinodes=1):
     caption = ""
 
     if (num_antinodes==0):
-        caption = "[{0}, {1}, {2}, {3}, {4}, {5}]".format( imWidth/2.0,  imHeight/2.0,    0,  imWidth/4.0,    imHeight/4.0,    90.0)
+        #caption = "[{0}, {1}, {2}, {3}, {4}, {5}]".format( imWidth/2.0,  imHeight/2.0,    0,  imWidth/4.0,    imHeight/4.0,    90.0)
+        caption = "{0},{1},{2},{3},{4},{5}".format( imWidth/2.0,  imHeight/2.0,    0,  imWidth/4.0,    imHeight/4.0,    90.0)
+
     for an in range(num_antinodes): # draw a bunch of antinodes
+
+        axes = (random.randint(15,int(imWidth/3.5)), random.randint(15,int(imHeight/3.5)))   # semimajor and semiminor axes of ellipse
+        axes = sorted(axes, reverse=True)   # do descending order, for definiteness
+
+
+        # TODO: based on viewing real images: for small antinodes, number of rings should also be small
         num_rings = random.randint(1, 11)            # well say that an antinode has at least 1 ring
 
-        axes = (random.randint(15,int(imWidth/3)), random.randint(15,int(imHeight/3)))   # semimajor and semiminor axes of ellipse
-        axes = sorted(axes, reverse=True)   # do descending order, for definiteness
 
         center = (random.randint(axes[0], imWidth-axes[0]),
             random.randint(axes[1], imHeight-axes[1]))
@@ -184,7 +192,8 @@ def draw_antinodes(img,num_antinodes=1):
         success = False
         if (trycount < maxtries):
             draw_rings(img, center, axes, angle=angle, num_rings=num_rings)
-            this_caption = "[{0}, {1}, {2}, {3}, {4}, {5}]".format(center[0], center[1],axes[0], axes[1], angle, num_rings)
+            #this_caption = "[{0}, {1}, {2}, {3}, {4}, {5}]".format(center[0], center[1],axes[0], axes[1], angle, num_rings)
+            this_caption = "{0},{1},{2},{3},{4},{5}".format(center[0], center[1],axes[0], axes[1], angle, num_rings)
             success = True
         else:   # just skip this antinode
             print("\n\r",pad,":WARNING Can't fit an=",an,"\n",sep="",end="\r")
@@ -208,8 +217,8 @@ def gen_images_wrapper(task):
 
 def gen_images(task):
     global pad
-    if (train_only):
-        dirname = 'Train_fake/'
+    if (train_only_global):
+        dirname = 'Train/'
     else:
         # have different tasks generate different parts of the dataset
         val = task*1.0/num_tasks
@@ -249,7 +258,7 @@ def gen_images(task):
         blur_dice_roll = np.random.random()
         if (blur_dice_roll <= blur_prob):
             blur_ksize = random.choice([3,5,7])
-            img = blur_image(img)
+            img = blur_image(img, kernel_size=blur_ksize)
 
         # post-blur noise
         noise = cv2.randn(np.zeros(np_dims, np.uint8),50,50);
@@ -257,19 +266,20 @@ def gen_images(task):
 
         prefix = dirname+'/steelpan_'+str(framenum).zfill(7)
         cv2.imwrite(prefix+'.png',img)
-        with open(prefix+".txt", "w") as text_file:
+        with open(prefix+meta_extension, "w") as text_file:
             text_file.write(caption)
 
-    print("\r",pad,":Finished",sep="",end="\r")
+    print("\r",pad,":Finished   ",sep="",end="\r")
 
 
-def gen_fake_espi():
-    global frame_start, num_frames, num_tasks, frames_per_task
+def gen_fake_espi(numframes, train_only=True):
+    global frame_start, num_frames, num_tasks, frames_per_task, train_only_global
     print("gen_fake_data: Generating synthetic data")
+    num_frames = numframes
     frame_start = 0
-    num_frames = 100000
     num_tasks = 10    # we've got 12 processors. but 10 is 'cleaner'
     frames_per_task= int(round(num_frames / num_tasks))
+    train_only_global = train_only
 
     start_time = time.clock()
 
@@ -300,5 +310,12 @@ if __name__ == "__main__":
     #global frame_start, num_frames, num_tasks, frames_per_task
     random.seed(1)
     np.random.seed(1)
-    gen_fake_espi()
+    import argparse
+    parser = argparse.ArgumentParser(description="trains network on training dataset")
+    parser.add_argument('-n', '--numframes', type=int, help='Number of images to generate', default=100)
+    parser.add_argument('-a', '--all',
+        help='general all data (Val & Test too), default is Train only', default=False, action='store_true')
+    args = parser.parse_args()
+
+    gen_fake_espi(args.numframes, train_only=(not args.all))
 #cv2.destroyAllWindows()
