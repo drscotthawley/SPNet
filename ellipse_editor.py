@@ -88,8 +88,8 @@ class EllipseEditor(tk.Frame):
         tk.Frame.__init__(self, parent)
 
         # create a canvas
-        self.width, self.height = 512, 384
-        self.readout = 300
+        self.width, self.height = 512, 384   # size of images
+        self.readout = 750                   # width for additional annotation text
         self.canvas = tk.Canvas(width=self.width + self.readout, height=self.height )
         self.canvas.pack(fill="both", expand=True)
         self.file_index = 0
@@ -106,12 +106,13 @@ class EllipseEditor(tk.Frame):
 
         self._token_data = []
         self._numtokens = 0
-        self.hr = 3             # handle radius
+        self.hr = 4             # handle radius
 
         # Define global event bindings
         self.canvas.bind("<B1-Motion>", self.update_readout)
         self.canvas.bind("<Double-Button-1>", self.on_doubleclick)
-        self.canvas.bind("<ButtonPress-2>", self.on_rightpress)
+        self.canvas.bind("<ButtonPress-2>", self.on_rightpress)   # on mac, button 2 is right mouse
+        self.canvas.bind("<ButtonPress-3>", self.on_rightpress)   # on linux, button 3 is right mouse
 
         self.canvas.focus_set()
         #self.canvas.bind("<KeyPress>", self.on_keypress, )
@@ -123,14 +124,14 @@ class EllipseEditor(tk.Frame):
         self.canvas.bind("<Right>", self.on_rightarrow)
 
         self.infostr = ""
-        self.text = self.canvas.create_text(self.width+10, 10, text=self.infostr, anchor=tk.NW, font=tk.font.Font(size=16,family='Consolas'))
+        self.text = self.canvas.create_text(self.width+10, 10, text=self.infostr, anchor=tk.NW, font=tk.font.Font(size=14,family='Consolas'))
         self.df = ''
 
         self.load_new_files()
 
     def load_new_files(self):
         self.canvas.delete("all")  #destroy old tokens
-        self.text = self.canvas.create_text(self.width+10, 10, text=self.infostr, anchor=tk.NW, font=tk.font.Font(size=16,family='Consolas'))
+        self.text = self.canvas.create_text(self.width+10, 10, text=self.infostr, anchor=tk.NW, font=tk.font.Font(size=14,family='Consolas'))
 
         self.img_file = img_file_list[self.file_index]
         self.meta_file = meta_file_list[self.file_index]
@@ -138,6 +139,7 @@ class EllipseEditor(tk.Frame):
         self.read_assign_csv()
 
     def read_assign_image(self):
+        print("reading from image file",self.img_file)
         self.image = Image.open(self.img_file)
         self.tkimage = ImageTk.PhotoImage(image=self.image)
         self.label = tk.Label(image=self.tkimage)
@@ -146,14 +148,19 @@ class EllipseEditor(tk.Frame):
         self.canvas.create_image(self.width/2,self.height/2, image=self.tkimage)
 
     def read_assign_csv(self):
-        self.df = pd.read_csv(self.meta_file)  # read metadata file
+        #print("FUTURE FEATURE, does not work yet: This routine expects CSV but Hawley's old format is a set of lists")
+        #assert False
+        print("reading from meta file",self.meta_file)
+        col_names = ['cx', 'cy', 'a', 'b', 'angle', 'rings']
+        self.df = pd.read_csv(self.meta_file,header=None,names=col_names)  # read metadata file
+        self.df.drop_duplicates(inplace=True)  # sometimes the data from Zooniverse has duplicate rows
         # assign  ellipse tokens (and their handles)
         for index, row in self.df.iterrows() :
-            #print(row['A'], row['B'])
-            cx, cy = int(row['cx']), int(row['cy'])
-            a, b = int(row['a']), int(row['b'])
-            angle, rings = float(row['angle']), int(row['rings'])
-            self._create_token((cx, cy), (a, b), angle, rings, self.color)
+            cx, cy = row['cx'], row['cy']
+            a, b = row['a'], row['b']
+            angle, rings = float(row['angle']), row['rings']
+            if (0!=rings):    # 0 rings means no antinode, i.e. nothing there
+                self._create_token((cx, cy), (a, b), angle, rings, self.color)
         self.update_readout(None)
 
 
@@ -173,7 +180,8 @@ class EllipseEditor(tk.Frame):
         h_a = self.canvas.create_oval(h_a_x-self.hr, h_a_y-self.hr, h_a_x+self.hr, h_a_y+self.hr, outline=color, fill=color, width=3, tags=(thistag,"handle","axis_a"))
         h_b = self.canvas.create_oval(h_b_x-self.hr, h_b_y-self.hr, h_b_x+self.hr, h_b_y+self.hr, outline=color, fill="blue", width=3, tags=(thistag,"handle","axis_b"))
 
-        ringtext = self.canvas.create_text(x-5, y-10, text=str(rings), anchor=tk.NW, font=tk.font.Font(size=20), fill=color, tags=(thistag,"ringtext"))
+        ringstr = '{0:.1f}'.format(rings)
+        ringtext = self.canvas.create_text(x-5, y-10, text=ringstr, anchor=tk.NW, font=tk.font.Font(size=20), fill=color, tags=(thistag,"ringtext"))
 
         self._token_data.append([oval,h_a,h_b,ringtext])
 
@@ -191,7 +199,7 @@ class EllipseEditor(tk.Frame):
         sys.exit()
     def on_skey(self,event):
         print("Saving file ",self.meta_file)
-        self.df.astype('int32').to_csv(self.meta_file,index=False)
+        self.df.to_csv(self.meta_file,index=False)
     def on_rightarrow(self,event):
         self.file_index += 1
         if (self.file_index >= len(meta_file_list)):
@@ -255,7 +263,7 @@ class EllipseEditor(tk.Frame):
 
         angle = np.rad2deg( np.arctan2( cy - h_a_y, h_a_x - cx) )
 
-        rings = int(self.canvas.itemcget(ringtext_id, 'text'))
+        rings = self.canvas.itemcget(ringtext_id, 'text')
 
         return cx, cy, a, b, angle, rings, ell_coords
 
@@ -336,16 +344,16 @@ class EllipseEditor(tk.Frame):
         tags = self.canvas.gettags( obj_id )
         #print("Right press detected! obj_id = ",obj_id, ", tags = ",tags)
         ringtext = self.canvas.itemcget(obj_id, 'text')
-        result = askinteger("How many rings", "How many rings?", initialvalue=int(ringtext), minvalue=1)
+        result = askinteger("How many rings", "How many rings?", initialvalue=int(ringtext), minvalue=1, maxval=11)
         self.canvas.itemconfigure(obj_id,text=str(result))
         self.canvas.focus_set()           # that dialog box stole the focus. get it back
         self.update_readout(None)
 
     def update_readout(self, event):
         mains = self.canvas.find_withtag( "main" )
-        self.infostr = self.meta_file+', '+self.img_file+':\n\n'
+        self.infostr = self.meta_file+'\n'+self.img_file+':\n\n'
 
-        new_df = pd.DataFrame(columns=self.df.columns,dtype='int32')
+        new_df = pd.DataFrame(columns=self.df.columns)
         # first we update the dataframe info
         for main_id in mains:
             tokentag = self.canvas.gettags( main_id )[0]
@@ -354,7 +362,7 @@ class EllipseEditor(tk.Frame):
             #self.infostr += '[{:4d}, {:4d}, {:4d}, {:4d}, {:6.2f}]\n'.format(int(cx), int(cy), int(a), int(b), angle)
 
         self.df = new_df
-        self.infostr += self.df.astype('int32').to_string(index=False,justify='right')      # then we output the dataframe info to a string
+        self.infostr += self.df.to_string(index=False,justify='left')      # then we output the dataframe info to a string
         #print(self.infostr)
         self.canvas.itemconfigure(self.text, text=self.infostr)   # then we re-assign the text widget with the new string
 
@@ -411,7 +419,7 @@ if __name__ == "__main__":
     print("    - Double-click to create ellipse")
     print("    - Left-click and drag inside ellipse (but not on a number) to move ellipse")
     print("    - Left-click and drag 'handles' to resize/rotate ellipse (solid = 'a', hollow = 'b')")
-    print("    - Right-click inside number to change ring count")
+    print("    - Right-click (or middle click) inside number to change ring count")
     print("    - Drag off-screen to destroy/delete ellipse")
     print(" Key bindings:")
     print("    - Right Arrow : Next file")
