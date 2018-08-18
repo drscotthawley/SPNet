@@ -1,28 +1,38 @@
 
-# from https://github.com/kuza55/keras-extras/blob/master/utils/multi_gpu.py
+# Originally from https://github.com/kuza55/keras-extras/blob/master/utils/multi_gpu.py
 # SHHawley updated to Keras 2, added make_serial & get_available_gpus, and gpu_count=-1 flag
 
 from keras.layers import concatenate
 from keras.layers.core import Lambda
 from keras.models import Model
+from keras.callbacks import Callback
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
 
 
-def make_serial(model, parallel=True):   # Undoes make_parallel, but keyword included in case it's called on a serial model
+def make_serial(model, parallel=True):
+    """
+    Undoes make_parallel, but keyword included in case it's called on a serial model
+    """
     if (parallel):
         return model.layers[-2]
     else:
         return model                    # if model's already serial, return original model
 
 
-def get_available_gpus():  # from https://stackoverflow.com/questions/38559755/how-to-get-current-available-gpus-in-tensorflow
+def get_available_gpus():
+    """
+    from https://stackoverflow.com/questions/38559755/how-to-get-current-available-gpus-in-tensorflow
+    """
     local_device_protos = device_lib.list_local_devices()
     return [x.name for x in local_device_protos if x.device_type == 'GPU']
 
 
 def make_parallel(model, gpu_count=-1):
+    """
+    Taken from https://github.com/kuza55/keras-extras/blob/master/utils/multi_gpu.py
+    """
     if (gpu_count < 0):                 # gpu_count < 0 will mean  "use all available GPUs"
         gpus =  get_available_gpus()
         gpu_count = len(gpus)
@@ -68,3 +78,20 @@ def make_parallel(model, gpu_count=-1):
             merged.append(concatenate(outputs, axis=0))
 
         return Model(inputs=model.inputs, outputs=merged)
+
+
+class ParallelCheckpointCallback(Callback):
+    """
+    Keras & HDF5 don't play nice when checkpointing data-parallel models,
+    so we use the 'serial part' as per @fchollet's remarks in
+    https://github.com/keras-team/keras/issues/8649#issuecomment-348829198
+    """
+    def __init__(self, model, filepath="weights.hdf5", save_every=1):
+         self.model_to_save = make_serial(model)
+         self.filepath = filepath
+         self.save_every = save_every
+
+    def on_epoch_end(self, epoch, logs=None):
+        if (0 == epoch % self.save_every) and ((epoch > 0) or (1 == self.save_every)):
+            print("Saving checkpoint to",self.filepath)
+            self.model_to_save.save(self.filepath)

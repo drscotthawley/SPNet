@@ -183,7 +183,7 @@ def augment_one_file(img_file_list, meta_file_list, file_index):
     '''
 
     # cutout image?
-    for cutout_param in [0,1,2,3,4,5,6]:  # various #s of cutout regions (TODO: No justification for this)
+    for cutout_param in [0,1,2,3,4,6]:  # various #s of cutout regions (TODO: No justification for this)
         co_img, co_metadata, co_prefix = cutout_image(img, metadata, prefix, cutout_param)
 
         # flip image?

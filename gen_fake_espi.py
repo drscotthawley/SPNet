@@ -157,7 +157,7 @@ def draw_antinodes(img,num_antinodes=1):
 
     if (num_antinodes==0):
         #caption = "[{0}, {1}, {2}, {3}, {4}, {5}]".format( imWidth/2.0,  imHeight/2.0,    0,  imWidth/4.0,    imHeight/4.0,    90.0)
-        caption = "{0},{1},{2},{3},{4},{5}".format( imWidth/2.0,  imHeight/2.0,    0,  imWidth/4.0,    imHeight/4.0,    90.0)
+        caption = "{0},{1},{2},{3},{4},{5}".format( 0,  0,    0,  0,    0,   0.0)  # as per @achmorrison's format
 
     for an in range(num_antinodes): # draw a bunch of antinodes
 
@@ -251,7 +251,7 @@ def gen_images(task):
         #print(pad,":",framenum," BDW ",sep="",end="\r")
 
         max_antinodes = 6
-        num_antinodes= 6# random.randint(0,max_antinodes)   # should we allow zero antinodes?
+        num_antinodes= random.randint(0,max_antinodes)
 
         img, caption = draw_antinodes(img, num_antinodes=num_antinodes)
 
@@ -272,7 +272,7 @@ def gen_images(task):
     print("\r",pad,":Finished   ",sep="",end="\r")
 
 
-def gen_fake_espi(numframes, train_only=True):
+def gen_fake_espi(numframes=1000, train_only=True):
     global frame_start, num_frames, num_tasks, frames_per_task, train_only_global
     print("gen_fake_data: Generating synthetic data")
     num_frames = numframes
@@ -312,10 +312,10 @@ if __name__ == "__main__":
     np.random.seed(1)
     import argparse
     parser = argparse.ArgumentParser(description="trains network on training dataset")
-    parser.add_argument('-n', '--numframes', type=int, help='Number of images to generate', default=100)
+    parser.add_argument('-n', '--numframes', type=int, help='Number of images to generate', default=500)
     parser.add_argument('-a', '--all',
         help='general all data (Val & Test too), default is Train only', default=False, action='store_true')
     args = parser.parse_args()
 
-    gen_fake_espi(args.numframes, train_only=(not args.all))
+    gen_fake_espi(numframes=args.numframes, train_only=(not args.all))
 #cv2.destroyAllWindows()

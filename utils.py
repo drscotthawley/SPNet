@@ -1,5 +1,6 @@
 
 import numpy as np
+import pandas as pd
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
@@ -12,9 +13,11 @@ import keras.backend as K
 import tensorflow as tf
 import os
 import errno
-
+import random
 
 dtype = np.float32
+
+meta_extension = ".csv"   # extension for metadata files
 
 # Define some colors: openCV uses BGR instead of RGB
 blue = (255,0,0)
@@ -69,7 +72,7 @@ def draw_ellipse(
 def show_pred_ellipses(Yt, Yp, file_list, num_draw=40, log_dir='./logs/', ind_extra=None):
     # Yt & Yp are already de-normed.  Yt = true,  Yp= predict
     m = Yt.shape[0]
-    num_draw = min(num_draw,m)
+    num_draw = min(num_draw, m, len(file_list)-1)
 
     print("  format for drawing: [cx,     cy,    rings,     a,     b,      angle]")
     j = 0
@@ -231,7 +234,22 @@ def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None): 
             print("     an = ",an,", true_arr[an] = ",true_arr[an])
             print("     gridYi[",ind_x,",",ind_y,"] = ",gridYi[ind_x,ind_y])
             print("     xbinsize, ybinsize = ",xbinsize, ybinsize)
-            print("")
+
+            err_img_filename = "true_to_pred_grid_err.png"
+            print("     Drawing to ",err_img_filename)
+            img = load_img(img_filename)                 # this is a PIL image
+            #img_dims = img_to_array(img).shape
+            img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)      # convert from PIL to OpenCV
+            #img = opencvImage
+
+            for an2 in range(true_arr.shape[0]):
+                print("     Drawing ellipse ",an2," of ",true_arr.shape[0],": ",true_arr[an2])
+                [cx, cy, a, b, cos2t, sin2t, noobj, rings] = true_arr[an2]   # ellipse for Testing
+                cx, cy,  a, b, noobj, rings = int(round(cx)), int(round(cy)),  int(round(a)), int(round(b)), int(round(noobj)), int(round(rings)) # OpenCV wants ints or it barfs
+                angle = np.rad2deg( np.arctan2(sin2t,cos2t)/2.0 )
+                draw_ellipse(img, [cx, cy], [a,b], angle, color=red, thickness=2)
+            cv2.imwrite(err_img_filename,img)
+
         assert( assigned_counts[ind_x, ind_y] < pred_shape[2] )
 
         gridYi[ind_x,ind_y, assigned_counts[ind_x, ind_y]] = true_arr[an]
@@ -255,51 +273,79 @@ def nearest_multiple( a, b ):   # returns number smaller than a, which is the ne
 def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscale=False, force_dim=224, pred_grid=[6,6,2], batch_size=None):
     global means, ranges
 
+    #---- Setup: list of files to read from
     img_file_list = sorted(glob.glob(path+'*.png'))
-    txt_file_list = sorted(glob.glob(path+'*.txt'))
-    assert( len(img_file_list) == len(txt_file_list))
+    meta_file_list = sorted(glob.glob(path+'*'+meta_extension))
+    print("Check: len(img_file_list) = "+str(len(img_file_list))+", and len(meta_file_list) = "+str(len(meta_file_list)) )
+    assert len(img_file_list) == len(meta_file_list), "Error: len(img_file_list) = " \
+        +str(len(img_file_list))+" but len(meta_file_list) = "+str(len(meta_file_list))
 
+    # Shuffle, https://stackoverflow.com/questions/23289547/shuffle-two-list-at-once-with-same-order
+    c = list(zip(img_file_list, meta_file_list))
+    random.shuffle(c)
+    img_file_list, meta_file_list = zip(*c)
+
+    # total loaded is a fraction of total files in directory
     total_files = len(img_file_list)
     total_load = int(total_files * load_frac)
     if (batch_size is not None):                # keras gets particular: dataset size must be mult. of batch_size
         total_load = nearest_multiple( total_load, batch_size)
-
     print("       total files = ",total_files,", going to load total_load = ",total_load)
 
-    i = 0
-    img_filename = img_file_list[i]
-    print("       first file = ",img_filename)
+
+    #---- Assign "true" Y values, via text files, first (to detect potential problems faster)
+    pred_shape = [pred_grid[0],pred_grid[1],pred_grid[2],vars_per_pred]  # shape of output predictions = grid_shape * vars per_grid
+    pred_shape = np.array(pred_shape,dtype=np.int)
+    num_outputs = np.prod(np.array(pred_shape))
+
+    print("Reading metadata files...")
+    true_stack = None                            # array stack to hold true info, to convert into Y
+    for i in range(total_load):                 # read all true info from disk into arrays
+        img_filename = img_file_list[i]
+        meta_filename = meta_file_list[i]
+        if (0 == i % 5000):
+            print("    Reading text file i =",i,"/",total_load,":",meta_filename)
+        one_true_arr = np.array(parse_meta_file(meta_filename)).tolist()     # one_true_arr is a list of the true info on all antinodes in this particular file
+        true_stack = add_to_stack(true_stack, one_true_arr)  # add to the stack, to further parse later
+
+
+    #--- Setup Y (true) data from text annotations
+    print("Using annotations from text files to setup 'true answers' Y and grid of predictors...")
+    true_stack = np.array(true_stack)
+
+    Y = np.zeros([total_load,num_outputs],dtype=dtype)          # allocate Ytrue
+    for i in range(total_load):                         # Divvy up all true values to grid of predictors
+        gridYi = true_to_pred_grid(np.array(true_stack[i]), pred_shape, img_filename=img_file_list[i])     # add true values to y according to which 'grid cell' they apply to
+        Y[i,:] = gridYi.flatten()      # Keras wants our output Y to be flat
+
+    # Now that Y is fully read-in and flattened, do some operations on it...
+    Y = norm_Y(Y, set_means_ranges=set_means_ranges)  # after all parts of Y are assigned, normalize
+
+
+    #---- Read images and assign them as input X
+    print("Now reading images and assigning as input X...")
+    img_filename = img_file_list[0]
+    print("       first image file = ",img_filename)
     img = load_img(img_filename)  # this is a PIL image
 
-    print("       force_dim = ",force_dim)
-
-    if (force_dim is not None):                 # resize if needed
-        print("        Resizing to ",force_dim,"x",force_dim)
+    if (force_dim is not None):                 # resize if needed (to square image)
+        print("        Resizing images to force_dim = ",force_dim,"x",force_dim)
         img = img.resize((force_dim,force_dim), PIL.Image.ANTIALIAS)
 
     img = img_to_array(img)
     img_dims = img.shape
     print("       img_dims = ",img_dims)
-
-    pred_shape = [pred_grid[0],pred_grid[1],pred_grid[2],vars_per_pred]  # shape of output predictions = grid_shape * vars per_grid
-
     if (grayscale):
         X = np.zeros((total_load, img_dims[0], img_dims[1],1),dtype=dtype)
     else:
         X = np.zeros((total_load, img_dims[0], img_dims[1], img_dims[2]),dtype=dtype)
 
-    pred_shape = np.array(pred_shape,dtype=np.int)
-    num_outputs = np.prod(np.array(pred_shape))
-    #print("pred_shape, num_outputs = ",pred_shape,num_outputs)
-    Y = np.zeros([total_load,num_outputs],dtype=dtype)          # but the final Y has to be flat (thanks Keras), not a grid
-
-    true_stack = None                            # array stack to hold true info, to convert into Y
-    for i in range(total_load):                 # read all true info from disk into arrays
+    # TODO: parallelize this?
+    for i in range(total_load):     # image info into X array
+        # TODO: make this parallel, e.g. using Multiprocessing
         img_filename = img_file_list[i]
-        txt_filename = txt_file_list[i]
-        #if (i == 10739):
         if (0 == i % 1000):
-            print(" Reading in i =",i,"/",total_load,": img_filename =",img_filename,", txt_filename =",txt_filename)
+            print("    Reading image file i =",i,"/",total_load,":",img_filename)
 
         img = load_img(img_filename)
         if (force_dim is not None):         # resize image if needed
@@ -307,49 +353,49 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
         img = img_to_array(img)
 
         img = img/255.0  # scale from 0 to 1
-        img -= 0.5 # zero-mean;  for Inception or Xception
-        img *= 2.  # for Inception or Xception
+        img -= 0.5       # zero-mean;  for Inception or Xception
+        img *= 2.        # for Inception or Xception
 
         if (grayscale):
-            X[i,:,:,0] = img[:,:,0]   # let's throw out the rgb-ness
+            X[i,:,:,0] = img[:,:,0]   # let's throw out the RGB and just keep greyscale
         else:
-            X[i,:,:,:] = img[:,:,:]    # throw out the rgb and just keep greyscale
+            X[i,:,:,:] = img[:,:,:]   # (default) keep RGB, even though ESPI images are greyscale, b/c many CNN models expect RGB
 
-        # one_true_arr holds  [ xc, yc, rings (1-11), a, b, theta (0-180)] for multiple antinodes, for one image
-        one_true_arr = np.array(parse_txt_file(txt_filename)).tolist()     # one_true_arr is a list of the true info on all antinodes in this particular file
-        #print("    txt_filename = ",txt_filename,", one_true_arr = ",one_true_arr)
-        # add to the stack
-        true_stack = add_to_stack(true_stack, one_true_arr)
-
-    # ------- All data has been read from disk at this point ------
-    true_stack = np.array(true_stack)
-
-    if (set_means_ranges):    # do some analysis on the dataset, e.g. set predictor default locations on grid
-        #cx_min, cx_max = np.min(true_stack[:,ind_cx::vars_per_pred]), np.max(true_stack[:,ind_cx::vars_per_pred])
-        #cy_min, cy_max = np.max(true_stack[:,ind_cy::vars_per_pred]), np.max(true_stack[:,ind_cy::vars_per_pred])
-        pass
-
-    for i in range(total_load):                         # Divvy up all true values to grid of predictors
-        gridYi = true_to_pred_grid(np.array(true_stack[i]), pred_shape, img_filename=img_file_list[i])     # add true values to y according to which 'grid cell' they apply to
-
-        # Keras wants our output Y to be flat
-        Y[i,:] = gridYi.flatten()
-
-    # Now that Y is fully read-in and flattened, do some operations on it...
-
-    Y = norm_Y(Y, set_means_ranges=set_means_ranges)  # after all parts of Y are assigned, normalize
-
+    # all data read in, so return
     return X, Y, img_dims, img_file_list, pred_shape              # pred_shape tells how to un-flatten Y
 
 
 
-def parse_txt_file(txt_filename):
-    f = open(txt_filename, "r")
+
+def parse_meta_file(meta_filename):
+    col_names = ['cx', 'cy', 'a', 'b', 'angle', 'rings']
+    df = pd.read_csv(meta_filename,header=None,names=col_names)  # read metadata file
+    df.drop_duplicates(inplace=True)  # sometimes the data from Zooniverse has duplicate rows
+
+    arrs = []    # this is a list of lists, containing all the ellipse info & ring counts for an image
+    for index, row in df.iterrows() :
+        cx, cy = row['cx'], row['cy']
+        a, b = row['a'], row['b']
+        angle, num_rings = float(row['angle']), row['rings']
+        # Input format (from file) is [cx, cy,  a, b, angle, num_rings]
+        #    But we'll change that to [cx, cy, a, b, cos(2*angle), sin(2*angle), 0 (noobj=0, i.e. existence), num_rings] for ease of transition to classification
+        if (num_rings > 0):    # Actually, check for existence
+            tmp_arr = [cx, cy, a, b, np.cos(2*np.deg2rad(angle)), np.sin(2*np.deg2rad(angle)), 0, num_rings]
+            arrs.append(tmp_arr)
+        else:
+            pass  # do nothing.  default is no ellipses in image
+
+    arrs = sorted(arrs,key=itemgetter(0,1))     # sort by y first, then by x
+    return arrs
+
+
+
+def old_parse_meta_file(meta_filename):  # old .txt format, no longer used
+    f = open(meta_filename, "r")
     lines = f.readlines()
     f.close()
 
-    xmin = 99999
-    arrs = []
+    arrs = []    # this is a list of lists, containing all the ellipse info & ring counts for an image
     for j in range(len(lines)):
         line = lines[j]   # grab a line
         line = line.translate({ord(c): None for c in '[] '})     # strip unwanted chars in unicode line

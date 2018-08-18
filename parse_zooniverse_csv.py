@@ -1,17 +1,16 @@
 #! /usr/bin/env python3
 
-# Designed to parse CSV files from @achmorrison, containing JSON info of annotations of steelpan images
+# Reads @achmorrison et al's 'cleaned' (rather than raw) aggregated ellipse info
+# Currently expects file to be called 'zooniverse_labeled_dataset.csv'.
+# TODO: Should make filename a command line options
 
 import pandas as pd
 import json
 import os
 from shutil import copy2
 import errno
+import sys
 
-# found it helpful to color the output since the strings were so long
-from colorama import init
-from colorama import Fore, Back, Style
-init()
 
 debug = 0
 
@@ -44,67 +43,43 @@ outpath = 'parsed_zooniverze_steelpan'
 inpath = 'zooniverse_steelpan'
 make_sure_path_exists(outpath)
 
-filename = 'zooniverse_labeled_dataset.csv'
-df = pd.read_csv(filename)
+in_filename = 'zooniverse_labeled_dataset.csv'
+# @achmorrison:  "The order of each row is: x, y, filename, fringe_count, rx, ry, angle"
+col_names = ['cx', 'cy', 'filename', 'rings', 'a', 'b', 'angle']
 
+# no header
+#headerstring = "cx,cy,a,b,angle,rings\n"   # for output to new csv files later, note slightly different order from above
+
+df = pd.read_csv(in_filename, names=col_names)
+
+# Now we just append each line of data to a new 'csv' file for each filename
+# first, as a safeguard delete any existing csv files in outpath
+import glob, os
+for f in glob.glob(outpath+"/*.csv"):
+    os.remove(f)
+
+# df = df.sort_values(by=['filename'])   # don't need to sort
 for index, row in df.iterrows():
-    line = row["annotations"]
-    subject_id = row["subject_ids"]
-    subject_data = row["subject_data"]
-    user_name = row["user_name"]
-    datalist = []
-    problem = False
-    sd_dict = json.loads(subject_data)
-    sd_dict2 = sd_dict[str(subject_id)]
-    ref_filename = sd_dict2["Filename"]
-    ref_filename = ref_filename.replace('bmp.png','png')   # lets just use all .PNGs, k? thx
-    #print(" user_name =[",user_name,"]",sep="")
-    # TODO: for now we append the username to files we create; in the future it would be nice to "merge" or "combine" multiple users' work on the same image
-    image_filename = os.path.splitext(ref_filename)[0]+"_"+user_name+'.png'
-    meta_filename = os.path.splitext(ref_filename)[0]+"_"+user_name+'.csv'
-    jlist = json.loads(line)
-    if (debug>0):
-        print("sd_dict = ",sd_dict)
-        print(Fore.MAGENTA+"image_filename =",image_filename,", meta_filename = ",meta_filename)
-        print(Fore.GREEN+"jlist=",jlist)
-    if (len(jlist) < 2):
-        print(Fore.RED+"   No antinodes in this image")
-    else:
-        i = 1   # skip i=0, which is header info
-        dict_i = jlist[i]
-        antinode_list = dict_i['value']
-        num_an = len(antinode_list)
-        if (debug > 2):
-            print(Fore.YELLOW+"        i = ",i,", dict_i = jlist[i] = ",dict_i)
-            print(Fore.WHITE+"                antinode_list = dict_i['value'] = ",antinode_list)
-            print(           "                num_an = len(antinode_list) = ",num_an)  # number of antinodes
-        for an in range(num_an):
-            info = antinode_list[an]
-            if (debug > 3):
-                print(Fore.CYAN+"                   info = antinode_list[",an,"] = ",info)
-            x = info['x']
-            y = info['y']
-            rx = info['rx']
-            ry = info['ry']
-            angle = info['angle']
-            rings = info['details'][0]['value']
-            # There are some problems in the data, e.g. value='' for 68115040 or value=None for 71179922. Ignore these images.
-            if (rings != '') and (rings is not None):
-                rings = int(rings)
-                if (debug > 3):
-                    print(Fore.CYAN+"                 Data:  x, y, rx, ry, angle, rings = ",x, y, rx, ry, angle, rings)
-                datalist.append([x, y, rx, ry, angle, rings])
-            else:
-                print(Fore.RED+"   Problem.  Ring count unusable.  Ignoring whole image")
-                problem = True
-    if (False == problem):
-        meta_filename = outpath+'/'+meta_filename
-        if (debug>0):
-            print(Fore.MAGENTA+"Output: meta file",meta_filename,": datalist = ",datalist)
-        create_meta_file(meta_filename,datalist)
-        copy2(inpath+'/'+ref_filename, outpath+'/'+image_filename)
-    if (debug > 0):
-        print("")
-        print("")
+    #print("index, row = ",index,row)
+    cx, cy = row['cx'], row['cy']
+    ref_filename = row['filename']
+    ref_filename = ref_filename.replace('bmp.png','png')   # "bmp.png" is confusing
+    rings = row['rings']
+    a, b = row['a'], row['b']
+    angle = row['angle']
+    meta_filename = os.path.splitext(ref_filename)[0]+'.csv'
 
-print(Fore.WHITE)
+    # if this is a new one then, create file   # --- and give it a header string
+    meta_file_path = outpath + '/' + meta_filename
+    if not os.path.exists(meta_file_path):
+        print("writing to",meta_file_path)
+        #with open(meta_file_path, "w") as meta_file:   NO header
+        #    meta_file.write(headerstring)
+        # also, copy the image itself over
+        copy2(inpath+'/'+ref_filename, outpath+'/'+ref_filename)
+
+    # add the data
+    # datastring = "[{0}, {1}, {2}, {3}, {4}, {5}]".format(cx,cy,a,b,angle,rings) # Old hawley format
+    datastring = "{0}, {1}, {2}, {3}, {4}, {5}".format(cx,cy,a,b,angle,rings) # CSV-appropriate format
+    with open(meta_file_path, "a") as meta_file:
+        meta_file.write(datastring+"\n")

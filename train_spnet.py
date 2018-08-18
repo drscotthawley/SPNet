@@ -15,11 +15,19 @@ import PIL
 import io
 from models import *
 from utils import *
+from multi_gpu import *
+
 from scipy.optimize import curve_fit
 
+def calc_errors(Yp, Yv):
+    """
+    Calc errors in ring counts
+      Yp = model prediction
+      Yv = true value for validation set
+      Yp & Yv have already been 'denormalized' at this point
 
-def calc_errors(Yp, Yv):  #index = 2 is where the ring count is stored.
-                             # Yp & Yv have already been 'denormalized' at this point
+      Not: index = 2 is where the ring count is stored.
+    """
     max_pred_antinodes = int(Yv.shape[1]/vars_per_pred)
     diff = Yp - Yv
     # pixel error in antinode centers
@@ -141,10 +149,11 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             # Plot centroids
             num_plot = 45                           # number of images to plot centroids for
             ax = plt.subplot(131, autoscale_on=False, aspect=orig_img_dims[0]*1.0/orig_img_dims[1], xlim=[0,orig_img_dims[0]], ylim=[0,orig_img_dims[1]])
-            for an in range( int(Yv.shape[1]/vars_per_pred)):
-                ind = ind_cx + an * vars_per_pred
-                # let's not plot non-objects
-                if (0==an):
+            for an in range( int(Yv.shape[1]/vars_per_pred)):   # loop over all possible antinodes in array of receptors
+                ind = ind_cx + an * vars_per_pred   # index of x position of this antinode
+                ind_noobj = ind + 6  # TODO: let's not plot non-objects
+
+                if (0==an):  # for the first one, add the label (if you put the label on all of them you get a giant legend)
                     ax.plot(Yv[0:num_plot,ind],Yv[0:num_plot,ind+1],'ro', label="Expected")
                     ax.plot(Yp[0:num_plot,ind],Yp[0:num_plot,ind+1],'go', label="Predicted")
                 else:
@@ -170,7 +179,7 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
                 ax.set_xlabel('(Global) Epoch')
                 ax.set_ylabel('Loss')
                 #ax.set_title('class accuracy = {:5.2f} %'.format(class_acc))
-                ax.legend(loc='upper right', fancybox=True, framealpha=0.8)
+                ax.legend(loc='lower left', fancybox=True, framealpha=0.8)
                 plt.xlim(xmin=1)
 
                 # plot accuracy history
@@ -217,26 +226,32 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
 
 
 
+
+
 def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0):
     np.random.seed(1)
 
     # Params for training: batch size, ....
-    batch_size = 20 #20 for large images    # greater batch size runs faster but may yield Out Of Memory errors
-                                            # also note that small batches yield better generalization: https://arxiv.org/pdf/1609.04836.pdf
+     # greater batch size runs faster but may yield Out Of Memory errors
+     # also note that small batches yield better generalization: https://arxiv.org/pdf/1609.04836.pdf
+    batch_size = 40 #20 for large images, single processor, 40 for dual processor
 
     print("Getting data..., fraction = ",fraction)
+    print("   Loading Training dataset...")
     X_train, Y_train, img_dims, train_file_list, pred_shape = build_dataset(path=datapath, load_frac=fraction, set_means_ranges=True, batch_size=batch_size)
-#    testpath="Test/"
-#    X_test, Y_test, img_dims, test_file_list  = build_dataset(path=testpath, load_frac=fraction)
     valpath="Val/"
+    print("   Loading Validation dataset...")
     X_val, Y_val, img_dims, val_file_list, pred_shape  = build_dataset(path=valpath, load_frac=1.0, set_means_ranges=False, batch_size=batch_size)
 
     print("Instantiating model...")
     parallel=True
-    model = setup_model(X_train, Y_train, no_cp_fatal=False, weights_file=weights_file, parallel=parallel)
+    freeze_fac=0.0
+    model = setup_model(X_train, Y_train, no_cp_fatal=False, weights_file=weights_file, parallel=parallel, freeze_fac=freeze_fac)
 
     # Set up callbacks
-    checkpointer = ModelCheckpoint(filepath=weights_file, save_best_only=True)
+    #checkpointer = ModelCheckpoint(filepath=weights_file, save_best_only=True)
+    checkpointer = ParallelCheckpointCallback(model, filepath=weights_file, save_every=5)
+
     #history = KerasLossHistory()
     now = time.strftime("%c").replace('  ','_').replace(' ','_')   # date, with no double spaces or spaces
     log_dir='./logs/'+now
@@ -246,18 +261,20 @@ def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0):
     earlystopping = EarlyStopping(patience=patience)
     myprogress = MyProgressCallback(X_val=X_val, Y_val=Y_val, val_file_list=val_file_list, log_dir=log_dir, pred_shape=pred_shape)
 
-    frozen_epochs = 30;  # how many epochs to first run with last layers of model frozen
+    frozen_epochs = 0;  # how many epochs to first run with last layers of model frozen
     later_epochs = 400
 
     # early training with partially-frozen pre-trained model
-    model.fit(X_train, Y_train, batch_size=batch_size, epochs=frozen_epochs, shuffle=True,
-              verbose=1, validation_data=(X_val, Y_val), callbacks=[earlystopping,tensorboard,myprogress])
-    model = unfreeze_model(model, X_train, Y_train, parallel=parallel)
+    if (frozen_epochs > 0) and (freeze_fac > 0.0):
+        model.fit(X_train, Y_train, batch_size=batch_size, epochs=frozen_epochs, shuffle=True,
+                  verbose=1, validation_data=(X_val, Y_val), callbacks=[earlystopping, tensorboard, myprogress, checkpointer])
+    if (freeze_fac > 0.0):
+        model = unfreeze_model(model, X_train, Y_train, parallel=parallel)
 
     # main training block
+    checkpointer = ParallelCheckpointCallback(model, filepath=weights_file, save_every=5)  # necessary b/c unfreezing created new model
     model.fit(X_train, Y_train, batch_size=batch_size, epochs=later_epochs, shuffle=True,
-              verbose=1, validation_data=(X_val, Y_val), callbacks=[checkpointer,earlystopping,tensorboard,myprogress])
-
+              verbose=1, validation_data=(X_val, Y_val), callbacks=[earlystopping,tensorboard,myprogress,checkpointer])
     return model
 
 
@@ -274,4 +291,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     model = train_network(weights_file=args.weights, datapath=args.datapath, fraction=args.fraction)
 
-    # Score the model against Test dataset
+    # TODO: Score the model against Test dataset

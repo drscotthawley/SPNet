@@ -10,6 +10,8 @@ from keras.layers import Convolution2D, MaxPooling2D, Flatten, Conv2D
 from keras.layers.normalization import BatchNormalization
 from keras.applications import Xception, VGG16
 from keras.applications.inception_v3 import InceptionV3
+from keras.applications.nasnet import NASNetLarge, NASNetMobile
+
 from keras.applications.inception_resnet_v2 import InceptionResNetV2
 from keras.applications.mobilenet import MobileNet, DepthwiseConv2D
 from keras.utils.generic_utils import CustomObjectScope
@@ -144,20 +146,21 @@ def MyYOLONet(X,Y):
     return model
 
 
-def instantiate_model(X, Y, freeze_fac=1.0):
+def instantiate_model(X, Y, freeze_fac=0.75):
     # Pick a pre-trained model, but leave the "top" off.
 
     #model = FullYOLO(X,Y)
     #return model
 
     input_tensor = Input(shape=X[0].shape)
-    weights = None#'imagenet'    # None or 'imagenet'    If you want to use imagenet, X[0].shape[2] must = 3
+    weights = 'imagenet'    # None or 'imagenet'    If you want to use imagenet, X[0].shape[2] must = 3
     #base_model = VGG16(weights=weights, include_top=False, input_tensor=input_tensor)              # same for all inputs
     #--nope base_model = Xception(weights=weights, include_top=False, input_tensor=input_tensor)   # yield same #s for all inputs
     #base_model = InceptionV3(weights=weights, include_top=False, input_tensor=input_tensor)       # Works well, fast
     #base_model = InceptionResNetV2(weights=weights, include_top=False, input_tensor=input_tensor)  # works ok, big, slow.  doesn't play well with "unfreeze" in multi-gpu setting
-    with CustomObjectScope({'relu6': keras.applications.mobilenet.relu6, 'DepthwiseConv2D': keras.applications.mobilenet.DepthwiseConv2D}):
-        base_model = MobileNet(input_shape=X[0].shape, weights=weights, include_top=False, input_tensor=input_tensor, dropout=0.6)       # Works well, VERY FAST! Needs img size 224x224
+    #with CustomObjectScope({'relu6': keras.applications.mobilenet.relu6, 'DepthwiseConv2D': keras.applications.mobilenet.DepthwiseConv2D}):
+    #    base_model = MobileNet(input_shape=X[0].shape, weights=weights, include_top=False, input_tensor=input_tensor, dropout=0.6)       # Works well, VERY FAST! Needs img size 224x224
+    base_model = NASNetMobile(input_shape=X[0].shape, weights=weights, include_top=False, input_tensor=input_tensor)
     top_model = Sequential()        # top_model gets tacked on to pretrained model
     top_model.add(Flatten(input_shape=base_model.output_shape[1:]))
     top_model.add(Dense(Y[0].size,name='FinalOutput'))      # Final output layer
@@ -189,7 +192,8 @@ def setup_model(X, Y, nb_layers=4, try_checkpoint=True,
         if ( isfile(weights_file) ):
             print ('Weights file detected. Loading from ',weights_file)
             with CustomObjectScope({'relu6': keras.applications.mobilenet.relu6,'DepthwiseConv2D': keras.applications.mobilenet.DepthwiseConv2D, 'custom_loss':custom_loss, 'tf':tf}):
-                loaded_model = make_serial( load_model(weights_file) , parallel=parallel)   # strip previous parallel part, to be added back in later
+                #loaded_model = make_serial( load_model(weights_file) , parallel=parallel)   # strip previous parallel part, to be added back in later
+                loaded_model = load_model(weights_file) # serial part was saved
 
             model.set_weights( loaded_model.get_weights() )
         else:
@@ -201,6 +205,7 @@ def setup_model(X, Y, nb_layers=4, try_checkpoint=True,
     if parallel:
         model = make_parallel(model)    # easier to "unfreeze" later if we leave it in serial
 
+    opt = Adam(lr = 0.00001)
     loss = custom_loss # custom_loss or 'mse'
     model.compile(loss=loss, optimizer=opt)
 
@@ -218,7 +223,7 @@ def unfreeze_model(model, X, Y, freeze_fac=0.0, parallel=True):
     if parallel:
         new_model = make_parallel(new_model)
 
-    opt = Adam()#lr=0.0001)
+    opt = Adam(lr=0.00001)
     loss = custom_loss # custom_loss or 'mse'
     new_model.compile(loss=loss, optimizer=opt)
     print("  ...finished un-freezing model")
