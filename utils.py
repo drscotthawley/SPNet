@@ -94,32 +94,32 @@ def show_pred_ellipses(Yt, Yp, file_list, num_draw=40, log_dir='./logs/', ind_ex
         for an in range(max_pred_antinodes):    # count through all antinodes
 
             [cx, cy, a, b, cos2t, sin2t, noobj, rings] = Yt[j,an*vars_per_pred:(an+1)*vars_per_pred]   # ellipse for Testing
-            cx, cy,  a, b, noobj, rings = int(round(cx)), int(round(cy)),  int(round(a)), int(round(b)), int(round(noobj)), int(round(rings)) # OpenCV wants ints or it barfs
+            cx, cy,  a, b, noobj = int(round(cx)), int(round(cy)),  int(round(a)), int(round(b)), int(round(noobj)) # OpenCV wants ints or it barfs
             angle = np.rad2deg( np.arctan2(sin2t,cos2t)/2.0 )
             if (angle < 0):
                 angle += 180
 
-            if ((an < 6) and (noobj==0)):
-                print("       True:   {: >4d}, {: >4d},  {: >4d}, {: >4d},   {: >6.2f},  {: >2d}, {: >4d}".format(cx, cy, a, b, angle, noobj, rings))
+            if (an < 6) and (0 == noobj):  # noobj==0 means there is an object
+                print("       True:   {: >4d}, {: >4d},  {: >4d}, {: >4d},   {: >6.2f},  {: >2d}, {: >4.1f}".format(cx, cy, a, b, angle, noobj, rings))
             if (noobj < 0.5) and (rings > 0) and (a>=0) and (b>=0):  # only draw if you should and if you can
                 draw_ellipse(img, [cx, cy], [a,b], angle, color=red, thickness=2)
                 #cv2.putText(img, "{: >2d}".format(rings), (cx-13,cy), cv2.FONT_HERSHEY_TRIPLEX, 0.95, grey, lineType=cv2.LINE_AA);  # add a little outline for readibility
-                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy+2), cv2.FONT_HERSHEY_TRIPLEX, 0.95, black, lineType=cv2.LINE_AA)  # add a little outline for readibility
-                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy), cv2.FONT_HERSHEY_TRIPLEX, 0.85, red, lineType=cv2.LINE_AA)
+                cv2.putText(img, "{: >3.1f}".format(rings), (cx-10,cy+2), cv2.FONT_HERSHEY_TRIPLEX, 0.95, black, lineType=cv2.LINE_AA)  # add a little outline for readibility
+                cv2.putText(img, "{: >3.1f}".format(rings), (cx-10,cy), cv2.FONT_HERSHEY_TRIPLEX, 0.85, red, lineType=cv2.LINE_AA)
 
             [cx, cy, a, b, cos2t, sin2t, noobj, rings] = Yp[j,an*vars_per_pred:(an+1)*vars_per_pred]   # ellipse for Prediction
-            cx, cy,  a, b, noobj, rings = int(round(cx)), int(round(cy)),  int(round(a)), int(round(b)), int(round(noobj)), int(round(rings)) # OpenCV wants ints or it barfs
+            cx, cy,  a, b, noobj = int(round(cx)), int(round(cy)),  int(round(a)), int(round(b)), int(round(noobj)) # OpenCV wants ints or it barfs
             angle = np.rad2deg( np.arctan2(sin2t,cos2t)/2.0 )
             if (angle < 0):
                 angle += 180
 
-            if ((an < 6) and (noobj==0)):
-                print("       Pred:   {: >4d}, {: >4d},  {: >4d}, {: >4d},   {: >6.2f},  {: >2d}, {: >4d}".format(cx, cy, a, b, angle, noobj, rings))
+            if (an < 6) and (0 == noobj):
+                print("       Pred:   {: >4d}, {: >4d},  {: >4d}, {: >4d},   {: >6.2f},  {: >2d}, {: >4.1f}".format(cx, cy, a, b, angle, noobj, rings))
             if (noobj < 0.5) and (rings > 0) and (a>=0) and (b>=0):  # only draw if you should and if you can
                 draw_ellipse(img, [cx, cy], [a,b], angle, color=green, thickness=2)
                 #cv2.putText(img, "{: >2d}".format(rings), (cx-13,cy+27), cv2.FONT_HERSHEY_TRIPLEX, 0.95, grey, lineType=cv2.LINE_AA)     # white outline
-                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy+29), cv2.FONT_HERSHEY_TRIPLEX, 0.95, black, lineType=cv2.LINE_AA)     # dark outline
-                cv2.putText(img, "{: >2d}".format(rings), (cx-10,cy+27), cv2.FONT_HERSHEY_TRIPLEX, 0.85, green, lineType=cv2.LINE_AA)
+                cv2.putText(img, "{: >3.1f}".format(rings), (cx-10,cy+29), cv2.FONT_HERSHEY_TRIPLEX, 0.95, black, lineType=cv2.LINE_AA)     # dark outline
+                cv2.putText(img, "{: >3.1f}".format(rings), (cx-10,cy+27), cv2.FONT_HERSHEY_TRIPLEX, 0.85, green, lineType=cv2.LINE_AA)
 
         cv2.putText(img, in_filename, (7, orig_img_dims[1]-3), cv2.FONT_HERSHEY_SIMPLEX, 0.55, black, lineType=cv2.LINE_AA); # display the filename
         cv2.putText(img, in_filename, (5, orig_img_dims[1]-5), cv2.FONT_HERSHEY_SIMPLEX, 0.55, white, lineType=cv2.LINE_AA); # display the filename
@@ -151,46 +151,23 @@ def denorm_Y(normY):
     return normY*ranges + means
 
 
-def one_hot_list(target_ind, num):  # makes an list num elements long, of zeros, except at target_ind where it's 1
-    one_hot = [0]*num
-    one_hot[int(target_ind)] = 1
-    return one_hot
-
-def eval_classifier(one_hot_pred):   # one_hot_pred includes [ confidence of 0 rings / non-existence, confidence of 1 ring, ..., confidence of 11 rings ]
-    # note that 'confidence' is similar to probability but is not necessarily bounded by 0,1
-    # And note that YOLO authors don't use softmax activation.
-    # So whichever confidence is highest, simply wins
-    '''# if one_hot_pred[0] < 0.5:    # ok, this assumes we have a mean of zero between
-    # return 0    # nothing exists here, return zero (as in zero rings)
-    # ring_count = 1 + np.argmax(one_hot_pred[1:])     # don't include the 0-ring part when computing argmax'''
-    # So all we're left with, then, is...
-    return np.argmax(one_hot_pred)   # returns an integer, where 0 denotes nothing there
-
-def set_Y_norms(Y, pred_shape):
-    return
-
-
-def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None):    # the essence of the YOLO-style approach
-                                    # this takes our 'true' antinode info for one image, and assigns it across the 'grid' of predictors, i.e. YOLO-style
-                                    # true_arr is a list of antinode data which has been read from a text file
-                                    # pred_shape has dimensions [nx, nx, preds_per_cell, vars_per_pred]
-    # TODO: and each value is organized (according to loss type) as
-    #   cx, cy, a, b, angle, prob_exist (or 0 rings), prob_1_ring, prob_2_rings,..., prob_11_rings
-    #   ... 17 variables in all
+def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None):
+    """
+    the essence of the YOLO-style approach
+     this takes our 'true' antinode info for one image, and assigns it across the 'grid' of predictors, i.e. YOLO-style
+     true_arr is a list of antinode data which has been read from a metadata file
+     pred_shape has dimensions [nx, nx, preds_per_cell, vars_per_pred]
+     TODO: and each value is organized (according to loss type) as
+       cx, cy, a, b, angle, prob_exist (or 0 rings), prob_1_ring, prob_2_rings,..., prob_11_rings
+       ... 17 variables in all
+    """
     global means, ranges
 
-    #true_arr = np.array(true_arr, dtype=dtype)   # convert from list to array
-    #[cx_min, cy_min] = [0, 0]
-    #[cx_max, cy_max] = orig_img_dims
+    # Assign Defaults ---------------------------------
     [cx_min, cy_min] =  [40,  40]
     [cx_max, cy_max] =[ 470, 350]
     xbinsize = int( (cx_max - cx_min) / pred_shape[0])
     ybinsize = int( (cy_max - cy_min) / pred_shape[1])
-
-    #xbinsize = int(orig_img_dims[0] / pred_shape[0])
-    #ybinsize = int(orig_img_dims[1] / pred_shape[1])
-    #cx_min = xbinsize / 2
-    #cy_min = ybinsize / 2
 
     # Also, set up the means & ranges for normalization, according to the grid of predictors
     gridmeans = np.zeros(pred_shape,dtype=dtype)
@@ -210,22 +187,15 @@ def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None): 
     means = gridmeans.flatten()                 # assign global means & ranges for later
     ranges = gridranges.flatten()
 
-    # Now here's where we actually assign the true_arr values
-    #print("divvy_up_true: true_arr = ",true_arr)
+    # Assign True Values -----------------------------
     assigned_counts = np.zeros(gridYi.shape[0:2],dtype=np.int)   # count up how many times a given array has been assigned
     this_shape = true_arr.shape
-    #print("   this_shape = ",this_shape)
-    #print("   true_arr = ",true_arr)
     for an in range(true_arr.shape[0]):
-        #print("      true_arr[an,0:2] = ",true_arr[an,0:2],",  xbinsize, ybinsize = ",xbinsize, ybinsize,", pred_shape = ",pred_shape)
         ind_x = int((true_arr[an,0]  - cx_min) / xbinsize)  # index within the grid of predictors
         ind_y = int((true_arr[an,1] -  cy_min) / ybinsize)
-        #print("            ind_x, ind_y = ",ind_x, ind_y)
 
         ind_x = min(  max(ind_x, 0), pred_shape[0]-1)
         ind_y = min(  max(ind_y, 0), pred_shape[1]-1)
-        #print("            ind_x, ind_y = ",ind_x, ind_y)
-        #print("            assigned_counts[ind_x, ind_y] =",assigned_counts[ind_x, ind_y])
         if not (assigned_counts[ind_x, ind_y] < pred_shape[2]):
             print("true_to_pred_grid: Error: Have already added ",assigned_counts[ind_x, ind_y]," out of a maximum of ",gridYi.shape[2],
             "possible 'slots' to predictive-grid cell [",ind_x,",",ind_y,"].  Increase last dimstion of pred_shape.")
@@ -240,12 +210,11 @@ def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None): 
             img = load_img(img_filename)                 # this is a PIL image
             #img_dims = img_to_array(img).shape
             img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)      # convert from PIL to OpenCV
-            #img = opencvImage
 
             for an2 in range(true_arr.shape[0]):
                 print("     Drawing ellipse ",an2," of ",true_arr.shape[0],": ",true_arr[an2])
                 [cx, cy, a, b, cos2t, sin2t, noobj, rings] = true_arr[an2]   # ellipse for Testing
-                cx, cy,  a, b, noobj, rings = int(round(cx)), int(round(cy)),  int(round(a)), int(round(b)), int(round(noobj)), int(round(rings)) # OpenCV wants ints or it barfs
+                cx, cy,  a, b = int(round(cx)), int(round(cy)),  int(round(a)), int(round(b))  # OpenCV wants ints or it barfs
                 angle = np.rad2deg( np.arctan2(sin2t,cos2t)/2.0 )
                 draw_ellipse(img, [cx, cy], [a,b], angle, color=red, thickness=2)
             cv2.imwrite(err_img_filename,img)
@@ -276,7 +245,7 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
     #---- Setup: list of files to read from
     img_file_list = sorted(glob.glob(path+'*.png'))
     meta_file_list = sorted(glob.glob(path+'*'+meta_extension))
-    print("Check: len(img_file_list) = "+str(len(img_file_list))+", and len(meta_file_list) = "+str(len(meta_file_list)) )
+    print("    Check: len(img_file_list) = "+str(len(img_file_list))+", and len(meta_file_list) = "+str(len(meta_file_list)) )
     assert len(img_file_list) == len(meta_file_list), "Error: len(img_file_list) = " \
         +str(len(img_file_list))+" but len(meta_file_list) = "+str(len(meta_file_list))
 
@@ -290,27 +259,27 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
     total_load = int(total_files * load_frac)
     if (batch_size is not None):                # keras gets particular: dataset size must be mult. of batch_size
         total_load = nearest_multiple( total_load, batch_size)
-    print("       total files = ",total_files,", going to load total_load = ",total_load)
+    print("    Total files = ",total_files,", going to load total_load = ",total_load)
 
 
-    #---- Assign "true" Y values, via text files, first (to detect potential problems faster)
+    #---- Assign "true" Y values, via metadata files, first (to detect potential problems faster)
     pred_shape = [pred_grid[0],pred_grid[1],pred_grid[2],vars_per_pred]  # shape of output predictions = grid_shape * vars per_grid
     pred_shape = np.array(pred_shape,dtype=np.int)
     num_outputs = np.prod(np.array(pred_shape))
 
-    print("Reading metadata files...")
+    print("    Reading metadata files...")
     true_stack = None                            # array stack to hold true info, to convert into Y
     for i in range(total_load):                 # read all true info from disk into arrays
         img_filename = img_file_list[i]
         meta_filename = meta_file_list[i]
         if (0 == i % 5000):
-            print("    Reading text file i =",i,"/",total_load,":",meta_filename)
+            print("      Reading metadata file i =",i,"/",total_load,":",meta_filename)
         one_true_arr = np.array(parse_meta_file(meta_filename)).tolist()     # one_true_arr is a list of the true info on all antinodes in this particular file
         true_stack = add_to_stack(true_stack, one_true_arr)  # add to the stack, to further parse later
 
 
-    #--- Setup Y (true) data from text annotations
-    print("Using annotations from text files to setup 'true answers' Y and grid of predictors...")
+    #--- Setup Y (true) data from metadata annotations
+    print("    Using annotations from metadata to setup 'true answers' Y and grid of predictors...")
     true_stack = np.array(true_stack)
 
     Y = np.zeros([total_load,num_outputs],dtype=dtype)          # allocate Ytrue
@@ -323,7 +292,7 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
 
 
     #---- Read images and assign them as input X
-    print("Now reading images and assigning as input X...")
+    print("    Now reading images and assigning as input X...")
     img_filename = img_file_list[0]
     print("       first image file = ",img_filename)
     img = load_img(img_filename)  # this is a PIL image
@@ -379,7 +348,7 @@ def parse_meta_file(meta_filename):
         angle, num_rings = float(row['angle']), row['rings']
         # Input format (from file) is [cx, cy,  a, b, angle, num_rings]
         #    But we'll change that to [cx, cy, a, b, cos(2*angle), sin(2*angle), 0 (noobj=0, i.e. existence), num_rings] for ease of transition to classification
-        if (num_rings > 0):    # Actually, check for existence
+        if (num_rings > 0.0):    # Actually, check for existence
             tmp_arr = [cx, cy, a, b, np.cos(2*np.deg2rad(angle)), np.sin(2*np.deg2rad(angle)), 0, num_rings]
             arrs.append(tmp_arr)
         else:
@@ -389,7 +358,7 @@ def parse_meta_file(meta_filename):
     return arrs
 
 
-
+'''
 def old_parse_meta_file(meta_filename):  # old .txt format, no longer used
     f = open(meta_filename, "r")
     lines = f.readlines()
@@ -416,3 +385,4 @@ def old_parse_meta_file(meta_filename):  # old .txt format, no longer used
 
     arrs = sorted(arrs,key=itemgetter(0,1))     # sort by y first, then by x
     return arrs
+'''

@@ -11,6 +11,7 @@ from shutil import copy2
 import errno
 import sys
 
+meta_extension = '.csv'   # extension for output metadata files
 
 debug = 0
 
@@ -41,24 +42,29 @@ def create_meta_file(filename, datalist):
 
 outpath = 'parsed_zooniverze_steelpan'
 inpath = 'zooniverse_steelpan'
+
+print("Making sure directory",outpath,"exists")
 make_sure_path_exists(outpath)
+
+# Now we just append each line of data to a new metadata file for each filename
+# first, as a safeguard delete any existing metadata files in outpath
+print("Removing any previous files in",outpath)
+import glob, os
+for f in glob.glob(outpath+"/*"+meta_extension):
+    os.remove(f)
+
 
 in_filename = 'zooniverse_labeled_dataset.csv'
 # @achmorrison:  "The order of each row is: x, y, filename, fringe_count, rx, ry, angle"
 col_names = ['cx', 'cy', 'filename', 'rings', 'a', 'b', 'angle']
 
-# no header
-#headerstring = "cx,cy,a,b,angle,rings\n"   # for output to new csv files later, note slightly different order from above
 
-df = pd.read_csv(in_filename, names=col_names)
-
-# Now we just append each line of data to a new 'csv' file for each filename
-# first, as a safeguard delete any existing csv files in outpath
-import glob, os
-for f in glob.glob(outpath+"/*.csv"):
-    os.remove(f)
+print("Reading metadata file",in_filename)
+df = pd.read_csv(in_filename, names=col_names) # no header
+df.drop_duplicates(inplace=True)  # sometimes the data from Zooniverse has duplicate rows
 
 # df = df.sort_values(by=['filename'])   # don't need to sort
+print("Writing individual metadata files")
 for index, row in df.iterrows():
     #print("index, row = ",index,row)
     cx, cy = row['cx'], row['cy']
@@ -67,7 +73,13 @@ for index, row in df.iterrows():
     rings = row['rings']
     a, b = row['a'], row['b']
     angle = row['angle']
-    meta_filename = os.path.splitext(ref_filename)[0]+'.csv'
+    # we want the semimajor axis a to be greater than the semiminor axis b
+    # Enforcing this will introduce a +/- 90 degree change in the angle.
+    if (b > a):
+        a, b = b, a            # swap
+        angle = angle + 90     # could subtract 90 instead; we're going to just take sin & cos of 2*angle later anyway
+
+    meta_filename = os.path.splitext(ref_filename)[0]+meta_extension
 
     # if this is a new one then, create file   # --- and give it a header string
     meta_file_path = outpath + '/' + meta_filename

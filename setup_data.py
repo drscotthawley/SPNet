@@ -59,7 +59,5 @@ if __name__ == "__main__":
     print("Clearing directories Train/ Test/ Val/")
     os.system("rm -rf Test Train Val")
     numfiles = distribute_dataset()
-    #os.system("python augment_data.py")
     augment_data()
-    #os.system("python gen_fake_data.py")
-    gen_fake_espi(numframes=numfiles*8, train_only=True)  # add synthetic data to Training set
+    #gen_fake_espi(numframes=numfiles*8, train_only=True)  # add synthetic data to Training set

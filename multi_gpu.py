@@ -94,4 +94,4 @@ class ParallelCheckpointCallback(Callback):
     def on_epoch_end(self, epoch, logs=None):
         if (0 == epoch % self.save_every) and ((epoch > 0) or (1 == self.save_every)):
             print("Saving checkpoint to",self.filepath)
-            self.model_to_save.save(self.filepath)
+            self.model_to_save.save_weights(self.filepath)  # on restart, we only load the weights

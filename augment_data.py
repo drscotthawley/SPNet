@@ -4,6 +4,9 @@
 # when images are altered, metadata (in accompanying text files) also needs to be altered
 # By default, only affects *Training* data.  Leaves Val & Test alone
 
+# TODO: Create a generator to be used within Keras fit routine, move cutout &
+#       other routines that don't affect metadata there
+
 import numpy as np
 import cv2
 import glob
@@ -15,30 +18,6 @@ from functools import partial
 
 
 meta_extension = ".csv"
-
-'''
-def read_metadata(meta_filename):
-    f = open(meta_filename, "r")
-    lines = f.readlines()
-    f.close()
-    #print("    Reading from text file ",meta_filename)
-    xmin = 99999
-    arrs = []
-    for j in range(len(lines)):
-        if 0==j:   # first line is a header line
-            break
-        line = lines[j]   # grab a line
-        line = line.translate({ord(c): None for c in '[] '})     # strip unwanted chars in unicode line
-        string_vars = line.split(sep=',')
-        #print("string_vars = ",string_vars)
-        vals = [int(round(float(numeric_string))) for numeric_string in string_vars]
-        subarr = vals[0:vars_per_pred]  # note vars_per_pred includes a slot for no-object, but numpy slicing convention means subarr will be vars_per_pred-1 elements long
-        [cx, cy, a, b, angle, num_rings] = subarr
-        #tmp_arr = [cx, cy, a, b, np.cos(2*np.deg2rad(angle)), np.sin(2*np.deg2rad(angle)), 0, num_rings]
-        # Input format (from file) is [cx, cy,  a, b, angle, num_rings]
-        arrs.append(subarr)
-    return arrs
-'''
 
 
 def read_metadata(meta_filename):
@@ -57,7 +36,10 @@ def read_metadata(meta_filename):
     return arrs
 
 
-def caption_from_metadata(metadata):  # converts metadata list-of-lists to caption string which is one antinode per line
+def caption_from_metadata(metadata):
+    """
+    converts metadata list-of-lists to caption string which is one antinode per line
+    """
     caption = ""
     for an in range(len(metadata)):
         [cx, cy, a, b, angle, rings] = metadata[an]
@@ -69,7 +51,7 @@ def caption_from_metadata(metadata):  # converts metadata list-of-lists to capti
     return caption
 
 
-def cleanup_angle(angle):
+def cleanup_angle(angle):    # not really needed, given that we use sin & cos of (2*angle) later
     while (angle < 0):
         angle += 180
     while (angle >= 180):
@@ -79,7 +61,7 @@ def cleanup_angle(angle):
 
 def flip_image(img, metadata, file_prefix, flip_param):
     img_flip = img.copy()
-    if (-2 == flip_param):
+    if (-2 == flip_param):   # do nothing
         return img_flip, list(metadata), file_prefix[:]
     height, width, channels = img.shape
     flip_metadata = list(metadata)  # copy
@@ -110,19 +92,23 @@ def flip_image(img, metadata, file_prefix, flip_param):
     return img_flip, new_metadata, new_prefix
 
 
-def blur_image(img, metadata, file_prefix, kernel=(3,3)):
+def blur_image(img, metadata, file_prefix, kernel=(3,3)):  # unused
     new_img = img.copy()
     new_img = cv2.GaussianBlur(new_img,kernel,0)
     new_prefix = file_prefix + "_b"
-    return new_img, metadata, new_prefix
+    return new_img, list(metadata), new_prefix
 
 
-# "Improved Regularization of Convolutional Neural Networks with Cutout", https://arxiv.org/abs/1708.04552
-#  All we do is chop out rectangular regions from the image, i.e. "masking out contiguous sections of the input"
-#   Unlike the original cutout paper, we don't cut out anything too huge, and we use random (greyscale) colors
 def cutout_image(img, metadata, file_prefix, num_regions):
-    #print("cutout_image: file_prefix, num_regions = ",file_prefix, num_regions)
+    """
+     "Improved Regularization of Convolutional Neural Networks with Cutout", https://arxiv.org/abs/1708.04552
+      All we do is chop out rectangular regions from the image, i.e. "masking out contiguous sections of the input"
+       Unlike the original cutout paper, we don't cut out anything too huge, and we use random (greyscale) colors
+    Note: leaves metadata unchanged
+    """
     new_img = img.copy()
+    if (0 == num_regions):   # do nothing
+        return new_img, list(metadata), file_prefix
     height, width, channels = img.shape
     minsize, maxsize = 20, int(height/3)
     for region in range(num_regions):
@@ -133,15 +119,15 @@ def cutout_image(img, metadata, file_prefix, num_regions):
         color = (cval,cval,cval)
         cv2.rectangle(new_img, pt1, pt2, color, -1)   # -1 means filled
     new_prefix = file_prefix +"_c" + str(num_regions)  # TODO: note running twice with same num_regions will/may overwrite a file
-    return new_img, metadata, new_prefix
-
+    return new_img, list(metadata), new_prefix
 
 
 def rotate_image(img, metadata, file_prefix, rot_angle, rot_origin=None):
     # note that cv2 sometimes reverses what normal humans consider x and y coordinates
     new_img = img.copy()
-    if (0 == rot_angle):
+    if (0 == rot_angle):     # do nothing
         return new_img, list(metadata), file_prefix
+
     height, width, channels = img.shape
     if (rot_origin is None):                            # if not specified, rotate about image center
         rot_origin = (width/2, height/2)
@@ -161,70 +147,125 @@ def rotate_image(img, metadata, file_prefix, rot_angle, rot_origin=None):
     new_prefix = file_prefix[:] + "_r{:>.2f}".format(rot_angle)
     return new_img, new_metadata, new_prefix
 
-def invert_image(img, metadata, file_prefix):
+
+def invert_image(img, metadata, file_prefix):  # unused
     prefix = file_prefix +"_i"
     return cv2.bitwise_not(img.copy()), list(metadata), prefix
 
-def augment_one_file(img_file_list, meta_file_list, file_index):
+
+def translate_image(img, metadata, file_prefix, trans_index):
+    """
+    translate an entire image and its metadata by a certain amount
+    Note: for a 'vanilla' CNN classifer, translation should have no effect, however
+          for a YOLO-style (or any?) object detector, it will/can make a difference.
+    see https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_geometric_transformations/py_geometric_transformations.html
+    """
+    new_img = img.copy()
+    if (0 == trans_index):  # do nothing
+        return new_img, list(metadata), file_prefix
+
+    trans_max = 40    # max number of pixels, in any direction
+    xt = int(round(trans_max * (2*np.random.random()-1) ))
+    yt = int(round(trans_max * (2*np.random.random()-1) ))
+    rows, cols, _ = img.shape
+    M = np.float32([[1,0,xt],[0,1,yt]])
+    new_img = cv2.warpAffine(new_img, M, (cols,rows))
+    new_metadata = []
+    for md in metadata:
+        [cx, cy, a, b, angle, rings] =  md
+        cx, cy = cx + xt, cy + yt
+        new_metadata.append( [cx, cy,  a, b, angle, rings] )
+    new_prefix = file_prefix[:] + "_t"+str(xt)+','+str(yt)
+    return new_img, new_metadata, new_prefix
+
+
+def augment_one_file(img_file_list, meta_file_list, n_augs, file_index):
+    """
+    Here is where successive augmentations of a single file (in a list) takes place
+    """
     i = file_index
     if (0 == i % 10):
-        print("     Progress:  i = ",i," of ",len(img_file_list))
+        print("     Progress: i =",i,"/",len(img_file_list))
     img_filename = img_file_list[i]
     meta_filename = meta_file_list[i]
 
-    prefix = os.path.splitext(img_filename)[0]
-    #print(" img_filename = ",img_filename,", prefix = ",prefix)
-    img =  cv2.imread(img_filename)
-    metadata = read_metadata(meta_filename)
+    orig_prefix = os.path.splitext(img_filename)[0]
+    orig_img =  cv2.imread(img_filename)
+    orig_metadata = read_metadata(meta_filename)
+
+    for aug in range(n_augs):
+        # flip image
+        flip_param = np.random.choice([-2,0])   # leave unchanged, or flip vertically; no other flips are relevant to this dataset
+        img, metadata, prefix = flip_image(orig_img, orig_metadata, orig_prefix, flip_param)
+
+        # rotate image
+        rot_angle = np.sign(random.random()-0.5)*(1 + 5*np.random.random())
+        img, metadata, prefix = rotate_image( img, metadata, prefix, rot_angle)
+
+        # translate image
+        img, metadata, prefix = translate_image( img, metadata, prefix, np.random.randint(10))
+
+        #After all the above changes: Actually output the img file and the metadata file
+        caption = caption_from_metadata( metadata )
+        if (True):     # TODO: quick flag to turn off file writing (if set to False)
+            with open(prefix+meta_extension, "w") as meta_file:
+                meta_file.write(caption)
+            cv2.imwrite(prefix+'.png', img)
+    return
+
     '''
-    # flip  [ vertical, horizontal, both v & h ]
-    for flip_param in [0,1,-1]:
-        img_flip, new_metadata, new_prefix = flip_image(img, metadata, prefix, flip_param)
-    '''
+    # --- Old way of doing augmentation: nested for loops
 
-    # cutout image?
-    for cutout_param in [0,1,2,3,4,6]:  # various #s of cutout regions (TODO: No justification for this)
-        co_img, co_metadata, co_prefix = cutout_image(img, metadata, prefix, cutout_param)
+    # flip image?  note for the Zooniverse steelpan dataset, horizontal flipping is irrelevant; arguably so is vertical but we'll do it
+    for flip_param in [-2,0]: # ,1,-1]:  # flip  [ not at all, vertical, horizontal, both v & h ]
+        flip_img, flip_metadata, flip_prefix = flip_image(img, metadata, prefix, flip_param)
 
-        # flip image?
-        for flip_param in [-2,0,1,-1]:  # flip  [ not at all, vertical, horizontal, both v & h ]
-            flip_img, flip_metadata, flip_prefix = flip_image(co_img, co_metadata, co_prefix, flip_param)
+        blur_img = flip_img.copy()
+        blur_prefix = flip_prefix
+        blur_metadata = list(flip_metadata)
+        for do_blur in [False]:#  , True]:  False = Nah. Real steelpan images are already blurry enough
+            if do_blur:
+                blur_img, blur_metadata, blur_prefix = blur_image( blur_img, flip_metadata, flip_prefix)
 
-            blur_img = flip_img.copy()
-            blur_prefix = flip_prefix
-            blur_metadata = list(flip_metadata)
-            for do_blur in [False]:#  , True]:  real images are already blurry enough
-                if do_blur:
-                    blur_img, blur_metadata, blur_prefix = blur_image( blur_img, flip_metadata, flip_prefix)
+            # rotate image (a little bit)?
+            num_rot = 4             # number of rotated image variations to generate
+            for irot in range(num_rot):
+                if (0 == irot):
+                    rot_angle = 0           # for the first instance, don't rotate at all
+                else:
+                    rot_angle = np.sign(random.random()-0.5)*(1 + 5*np.random.random())  # rotate by 1 to 6 degrees, either direction
+                rot_img, rot_metadata, rot_prefix = rotate_image( blur_img, blur_metadata, blur_prefix, rot_angle)
 
-                # rotate image (a little bit)?
-                num_rot = 4             # number of rotated image variations to generate
-                for irot in range(num_rot):
-                    if (0 == irot):
-                        rot_angle = 0           # for the first instance, don't rotate at all
-                    else:
-                        rot_angle = np.sign(random.random()-0.5)*(1 + 5*np.random.random())  # rotate by 1 to 6 degrees, either direction
-                    rot_img, rot_metadata, rot_prefix = rotate_image( blur_img, blur_metadata, blur_prefix, rot_angle)
 
-                    inv_img = rot_img.copy()
-                    inv_metadata = list(rot_metadata)
-                    inv_prefix = rot_prefix
+                # cutout image?
+                for cutout_param in [0]:#  Nah. Wait & do cutout on the fly [2,3,4,6]:  # various #s of cutout regions
+                    co_img, co_metadata, co_prefix = cutout_image(rot_img, rot_metadata, rot_prefix, cutout_param)
+
+
+                    inv_img = co_img.copy()
+                    inv_metadata = list(co_metadata)
+                    inv_prefix = co_prefix
                     # invert color?
                     for do_inv in [False]:#  , True]:    # actually @achmorrison specifies: count rings using white/grey not black
                         if (do_inv):
                             inv_img, inv_metadata, inv_prefix =invert_image( rot_img, rot_metadata, rot_prefix)
 
-                        # Actually output the img file and the metadata text file
-                        caption = caption_from_metadata( inv_metadata )
-                        if (True):     # TODO: quick flag to turn off file writing (if set to False)
-                            with open(inv_prefix+meta_extension, "w") as text_file:
-                                text_file.write(caption)
-                            cv2.imwrite(inv_prefix+'.png',inv_img)
+                        # translate image?   Note that object detection is not *just* a CNN, so translations do matter
+                        for do_trans in range(3):
+                            trans_img, trans_metadata, trans_prefix = translate_image( inv_img, inv_metadata, inv_prefix, do_trans)
+
+
+                            #After all the above changes: Actually output the img file and the metadata file
+                            caption = caption_from_metadata( trans_metadata )
+                            if (True):     # TODO: quick flag to turn off file writing (if set to False)
+                                with open(trans_prefix+meta_extension, "w") as text_file:
+                                    text_file.write(caption)
+                                cv2.imwrite(trans_prefix+'.png',trans_img)
     return
+    '''
 
-
-def augment_data(path='Train/'):
-    print("augment_data: Augmenting data in",path)
+def augment_data(path='Train/', n_augs=49):
+    print("augment_data: Augmenting data in",path,'by a factor of',n_augs+1)
 
     img_file_list = sorted(glob.glob(path+'*.png'))
     meta_file_list = sorted(glob.glob(path+'*'+meta_extension))
@@ -238,7 +279,7 @@ def augment_data(path='Train/'):
     cpu_count = os.cpu_count()
     print("Mapping augmentation operation across",cpu_count,"processes")
     pool = Pool(cpu_count)
-    pool.map(partial(augment_one_file, img_file_list, meta_file_list), file_indices)
+    pool.map(partial(augment_one_file, img_file_list, meta_file_list, n_augs), file_indices)
 
     new_numfiles = len(sorted(glob.glob(path+'*.png')))
     print("Augmented from",numfiles,"files up to",new_numfiles)

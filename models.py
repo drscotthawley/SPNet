@@ -232,10 +232,10 @@ def unfreeze_model(model, X, Y, freeze_fac=0.0, parallel=True):
 
 # Loss functions
 # Lambda values tuned by experience: to make corresponding losses close to the same magnitude
-lambda_center = 1.0
+lambda_center = 2.0
 lambda_size = 1.0
-lambda_angle = 10.0
-lambda_noobj = 0.5
+lambda_angle = 8.0
+lambda_noobj = 0.8
 lambda_class = 3.0
 
 def custom_loss(y_true, y_pred):  # it's just MSE but the angle term is weighted by (a-b)^2
