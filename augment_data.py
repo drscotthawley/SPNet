@@ -137,7 +137,7 @@ def rotate_image(img, metadata, file_prefix, rot_angle, rot_origin=None):
     new_metadata = []
     for md in metadata:
         [cx, cy, a, b, angle, rings] =  md
-        angle -= rot_angle
+        angle += rot_angle
         angle = cleanup_angle( angle )
         myPoint = np.transpose( np.array( [ cx, cy, 1] ) )
         newPoint = np.matmul ( rot_matrix, myPoint)
@@ -198,8 +198,9 @@ def augment_one_file(img_file_list, meta_file_list, n_augs, file_index):
         flip_param = np.random.choice([-2,0])   # leave unchanged, or flip vertically; no other flips are relevant to this dataset
         img, metadata, prefix = flip_image(orig_img, orig_metadata, orig_prefix, flip_param)
 
-        # rotate image
-        rot_angle = np.sign(random.random()-0.5)*(1 + 5*np.random.random())
+        # rotate image +/- by some small random angle
+        rot_max = 20   # degrees
+        rot_angle = np.random.uniform(-rot_max, high=rot_max)
         img, metadata, prefix = rotate_image( img, metadata, prefix, rot_angle)
 
         # translate image
@@ -264,7 +265,7 @@ def augment_one_file(img_file_list, meta_file_list, n_augs, file_index):
     return
     '''
 
-def augment_data(path='Train/', n_augs=49):
+def augment_data(path='Train/', n_augs=19):
     print("augment_data: Augmenting data in",path,'by a factor of',n_augs+1)
 
     img_file_list = sorted(glob.glob(path+'*.png'))
@@ -285,4 +286,11 @@ def augment_data(path='Train/', n_augs=49):
     print("Augmented from",numfiles,"files up to",new_numfiles)
 
 if __name__ == "__main__":
-    augment_data()
+    import argparse
+    parser = argparse.ArgumentParser(description="augments data in path")
+    parser.add_argument('-p', '--path', #type=argparse.string,
+        help='dataset directory in which to augment', default="Train/")
+    parser.add_argument('-n', '--naugs', type=int, help='number of augmentations per image to generate', default=19)
+    args = parser.parse_args()
+
+    augment_data(pat=args.path, n_augs=args.naugs)
