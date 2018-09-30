@@ -88,6 +88,9 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
         #self.max_pred_antinodes=max_pred_antinodes
         self.pred_shape = pred_shape
 
+        if not os.path.exists(log_dir):  # make sure log directory exists
+            os.makedirs(log_dir)
+
     def on_train_begin(self, logs={}):
         hist = []
         train_loss_hist = []
@@ -107,13 +110,13 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
         """
         print('    Making list of real centroids...')
         xlist, ylist = [], []
-        row, maxrow = 0, 1000
+        row, maxrow = 0, Y.shape[0]-1
         while (len(xlist) < num_centroids) and (row < maxrow):
             # our predictors are arranged as multiple groups of columns (vars_per_pred in each group)
             for an in range( int(Y.shape[1]/vars_per_pred)):   # loop over all possible antinodes in array of receptors
                 ind = ind_cx + an * vars_per_pred   # index of x position of this antinode
                 ind_noobj = ind + 6
-                if (Y[row,ind_noobj] < 0.4):   # object (probably) exists
+                if (0==int(round(Y[row,ind_noobj]))):   # if object exists
                     xlist.append(Y[row,ind])
                     ylist.append(Y[row,ind+1])
             row += 1
@@ -290,11 +293,11 @@ class AugmentOnTheFly(Callback):
         num_pepper = np.ceil(amount * img.size * (1.0 - salt_vs_pepper))
 
         # Add Salt noise
-        coords = [np.random.randint(0, i - 1, int(num_salt)) for i in img.shape]
+        coords = [np.random.randint(0, i - 1, int(num_salt)) for i in img.shape[0:2]]
         img[coords[0], coords[1], :] = salt_color
 
         # Add Pepper noise
-        coords = [np.random.randint(0, i - 1, int(num_pepper)) for i in img.shape]
+        coords = [np.random.randint(0, i - 1, int(num_pepper)) for i in img.shape[0:2]]
         img[coords[0], coords[1], :] = pepper_color
 
 
@@ -331,52 +334,47 @@ class AugmentOnTheFly(Callback):
 
                 self.X[i,:,:,:] = img   # overwrite the relevant part of current dataset (this propagates 'out' to model.fit b/c pointers)
             print("")
-            
+
     def on_epoch_end(self, epoch, logs=None):
         pass   # do nothing
 
 
 
 
-def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0):
+def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0, batch_size=32, \
+        epochs=30, pred_grid=[6,6,2]):
+    # for deterministic results (TODO: remove later for more general testing)
     np.random.seed(1)
+    from tensorflow import set_random_seed
+    set_random_seed(1)
 
-    # Params for training: batch size, ....
-     # greater batch size runs faster but may yield Out Of Memory errors
-     # also note that small batches yield better generalization: https://arxiv.org/pdf/1609.04836.pdf
-    batch_size = 32 #20 for large images, single processor, 40 for dual processor
+    print("pred_grid = ",pred_grid)
 
-    print("Loading data, fraction =",fraction)
-    print("  Loading Training dataset...")
-    X_train, Y_train, img_dims, train_file_list, pred_shape = build_dataset(path=datapath, load_frac=fraction, set_means_ranges=True, batch_size=batch_size)
+    # Load data
+    X_train, Y_train, train_file_list, pred_shape = build_dataset(path=datapath, \
+        load_frac=fraction, set_means_ranges=True, batch_size=batch_size, pred_grid=pred_grid)
     valpath="Val/"
-    print("  Loading Validation dataset...")
-    X_val, Y_val, img_dims, val_file_list, pred_shape  = build_dataset(path=valpath, load_frac=1.0, set_means_ranges=False, batch_size=batch_size)
+    X_val, Y_val, val_file_list, pred_shape  = build_dataset(path=valpath, load_frac=1.0, \
+        set_means_ranges=False, batch_size=batch_size, pred_grid=pred_grid)
 
-    print("Instantiating model...")
+    print("Seting up NN model...")
     parallel=True
-    freeze_fac=0.0
-    model = setup_model(X_train, Y_train, no_cp_fatal=False, weights_file=weights_file, parallel=parallel, freeze_fac=freeze_fac)
+    freeze_fac=1.0
+    model, serial_model = setup_model(X_train, Y_train[0].size, no_cp_fatal=False, weights_file=weights_file, parallel=parallel, \
+        freeze_fac=freeze_fac)
 
     # Set up callbacks
-    #checkpointer = ModelCheckpoint(filepath=weights_file, save_best_only=True)
-    checkpointer = ParallelCheckpointCallback(model, filepath=weights_file, save_every=5)
-
-    #history = KerasLossHistory()
     now = time.strftime("%c").replace('  ','_').replace(' ','_')   # date, with no double spaces or spaces
     log_dir='./logs/'+now
-
-    tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=0, write_graph=False, write_images=False)
-    patience = 40
-    earlystopping = EarlyStopping(patience=patience)
     myprogress = MyProgressCallback(X_val=X_val, Y_val=Y_val, val_file_list=val_file_list, log_dir=log_dir, pred_shape=pred_shape)
-
+    checkpointer = ParallelCheckpointCallback(serial_model, filepath=weights_file, save_every=3)
     aug_on_fly = AugmentOnTheFly(X_train, aug_every=2)
+    #Tenosrboard can be a memory hog. tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=0, write_graph=False, write_images=False)
+    #earlystopping = EarlyStopping(patience=5)
+    callbacks = [myprogress, checkpointer, aug_on_fly]# , earlystopping]#, tensorboard]
 
-    callbacks = [myprogress, checkpointer, aug_on_fly, earlystopping, tensorboard]
-
-    frozen_epochs = 0;  # how many epochs to first run with last layers of model frozen
-    later_epochs = 400
+    frozen_epochs = 10;  # how many epochs to first run with last layers of model frozen
+    later_epochs = epochs - frozen_epochs
 
     # early training with partially-frozen pre-trained model
     if (frozen_epochs > 0) and (freeze_fac > 0.0):
@@ -386,7 +384,6 @@ def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0):
         model = unfreeze_model(model, X_train, Y_train, parallel=parallel)
 
     # main training block
-    checkpointer = ParallelCheckpointCallback(model, filepath=weights_file, save_every=5)  # necessary b/c unfreezing created new model
     model.fit(X_train, Y_train, batch_size=batch_size, epochs=later_epochs, shuffle=True,
               verbose=1, validation_data=(X_val, Y_val), callbacks=callbacks)
     return model
@@ -396,13 +393,21 @@ def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description="trains network on training dataset")
-    parser.add_argument('-w', '--weights', #nargs=1, type=argparse.FileType('r'),
-        help='weights file in hdf5 format', default="weights.hdf5")
-    parser.add_argument('-c', '--datapath', #type=argparse.string,
-        help='Train dataset directory with list of classes', default="Train/")
-    parser.add_argument('-f', '--fraction', type=float,
-        help='Fraction of dataset to use', default=1.0)
+     # greater batch size runs faster but may yield Out Of Memory errors
+     # also note that small batches yield better generalization: https://arxiv.org/pdf/1609.04836.pdf
+    parser.add_argument('-b', '--batch_size', type=int, help='Batch size to use', default=36)
+    parser.add_argument('-d', '--datapath', help='Train dataset directory with list of classes', default="Train/")
+    parser.add_argument('-e', '--epochs', type=int, help='Number of epochs to run', default=35)
+    parser.add_argument('-f', '--fraction', type=float, help='Fraction of dataset to use', default=1.0)
+    parser.add_argument('-g', '--grid', help='Shape of predictor grid', default="6x6x2")
+    parser.add_argument('-w', '--weights', help='Weights file in hdf5 format', default="weights.hdf5")
     args = parser.parse_args()
-    model = train_network(weights_file=args.weights, datapath=args.datapath, fraction=args.fraction)
+    print("args = ",args)
+
+    pred_grid = [int(i) for i in args.grid.split('x')]  # convert string to shape
+
+    model = train_network(weights_file=args.weights, datapath=args.datapath, fraction=args.fraction, \
+        batch_size=args.batch_size, epochs=args.epochs, pred_grid=pred_grid)
 
     # TODO: Score the model against Test dataset
+    print("SPNet execution completed.")

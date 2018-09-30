@@ -17,6 +17,11 @@ To get the corresponding image file, it replaces '.csv' with '.png' in the file 
 For more options, run $ ./ellipse_editor.py --help
 
 
+This code actually uses Tk instead OpenCV.  Because...those are the first tutorials I found.
+The rest of the SPNet code uses OpenCV.
+
+
+
 MIT License:
 Copyright (c) 2018 Scott Hawley, https://github.com/drscotthawley
 
