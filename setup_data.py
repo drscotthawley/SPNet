@@ -8,15 +8,15 @@
 
 # Assumes you have ALREADY run parse_zooniverse_csv.py and that all real data is now
 # in <real_data_dir>
-real_data_dir = "../datasets/parsed_zooniverze_steelpan/"
+real_data_dir = "/home/shawley/datasets/parsed_zooniverze_steelpan/"
 
 import glob
 import os
 from shutil import copy
-from random import shuffle
-from utils import *
+from random import seed, shuffle
+from spnet.utils import *
 from augment_data import *
-from gen_fake_espi import *
+#from gen_fake_espi import *
 
 meta_extension = '.csv'
 
@@ -39,16 +39,16 @@ def distribute_dataset():
 
     # copy things into Test, Train and Vals directories
     make_sure_path_exists('Train')
-    make_sure_path_exists('Test')
+    #make_sure_path_exists('Test')
     make_sure_path_exists('Val')
     for i in range(len(indices)):
         frac = i * 1.0 / numfiles
-        if frac < 0.8:
+        if frac < 0.80:
             dest = 'Train/'
-        elif (frac > 1.0):  # For now, we'll just use Val as our Test set
-            dest = 'Test/'
         else:
             dest = 'Val/'
+        #else:
+        #    dest = 'Val/'
         copy(img_file_list[indices[i]], dest)
         copy(meta_file_list[indices[i]], dest)
     return numfiles
@@ -56,6 +56,7 @@ def distribute_dataset():
 
 # --- Main code
 if __name__ == "__main__":
+    random.seed(1)  # for determinism
     print("Clearing directories Train/ Test/ Val/")
     os.system("rm -rf Test Train Val")
     numfiles = distribute_dataset()

@@ -1,12 +1,8 @@
-
-
 import numpy as np
 import pandas as pd
-import matplotlib as mpl
-mpl.use('Agg')
-import matplotlib.pyplot as plt
 import glob
 from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img
+from keras.callbacks import Callback
 import cv2
 import PIL
 from operator import itemgetter
@@ -15,30 +11,9 @@ import tensorflow as tf
 import os
 import errno
 import random
-
-dtype = np.float32
-
-meta_extension = ".csv"   # extension for metadata files
-
-# Define some colors: openCV uses BGR instead of RGB
-blue = (255,0,0)
-red = (0,0,255)
-green = (0,200,0)
-white = (255, 255, 255)
-black = (0, 0, 0)
-grey = (128, 128, 128)
-
-# define indices for different parts of the data stream
-vars_per_pred = 8
-ind_cx = 0
-ind_cy = 1
-ind_semi_a = 2
-ind_semi_b = 3
-ind_angle1 = 4          # cos(2*theta)
-ind_angle2 = 5          # sin(2*theta)
-ind_noobj = 6
-ind_rings = 7
-
+import time
+from spnet import models, diagnostics
+import spnet.config as cf
 
 def make_sure_path_exists(path):
     try:                # go ahead and try to make the the directory
@@ -69,7 +44,7 @@ def draw_ellipse(
     return ellipse
 
 
-def show_pred_ellipses(Yt, Yp, file_list, num_draw=40, log_dir='./logs/', ind_extra=None, out_csv=None, show_true=True):
+def show_pred_ellipses(Yt, Yp, file_list, num_draw=40, log_dir='./logs/', ind_extra=None, out_csv=None, show_true=True,verbosity=0):
     """
     draws a bunch of sample output files showing where ellipses are on images
 
@@ -83,7 +58,7 @@ def show_pred_ellipses(Yt, Yp, file_list, num_draw=40, log_dir='./logs/', ind_ex
         with open(out_csv, "w") as file_csv_out:
             file_csv_out.write('')
 
-    print("  format for drawing: [cx,  cy,  a,  b, angle, noobj, rings]")
+    if verbosity > 0: print("  format for drawing: [cx,  cy,  a,  b, angle, noobj, rings]")
     for count in range(num_draw):     # loop over all files
         j = count
         if (count >= num_draw):
@@ -93,52 +68,52 @@ def show_pred_ellipses(Yt, Yp, file_list, num_draw=40, log_dir='./logs/', ind_ex
         csv_str = ''
 
         out_filename = log_dir+'/steelpan_pred_'+str(j).zfill(5)+'.png'
-        print("    Drawing on image",count,"of",num_draw,":",in_filename,", writing to",out_filename)
+        if verbosity > 0: print("    Drawing on image",count,"of",num_draw,":",in_filename,", writing to",out_filename)
         img = load_img(in_filename)                 # this is a PIL image
         img_dims = img_to_array(img).shape
 
         opencvImage = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)      # convert from PIL to OpenCV
         img = opencvImage
 
-        max_pred_antinodes = int(Yt[0].size / vars_per_pred)
+        max_pred_antinodes = int(Yt[0].size / cf.vars_per_pred)
         for an in range(max_pred_antinodes):    # count through all antinodes
 
             if (show_true == True):
-                [cx, cy, a, b, cos2t, sin2t, noobj, rings] = Yt[j,an*vars_per_pred:(an+1)*vars_per_pred]   # ellipse for Testing
+                [cx, cy, a, b, cos2t, sin2t, noobj, rings] = Yt[j,an*cf.vars_per_pred:(an+1)*cf.vars_per_pred]   # ellipse for Testing
                 cx, cy,  a, b, noobj = int(round(cx)), int(round(cy)),  int(round(a)), int(round(b)), int(round(noobj)) # OpenCV wants ints or it barfs
                 angle = np.rad2deg( np.arctan2(sin2t,cos2t)/2.0 )
                 if (angle < 0):
                     angle += 180
 
                 if (an < 6) and (0 == noobj):  # noobj==0 means there is an object
-                    print("       True:   {: >4d}, {: >4d},  {: >4d}, {: >4d},   {: >6.2f},  {: >2d}, {: >4.1f}".format(cx, cy, a, b, angle, noobj, rings))
+                    if verbosity > 0: print("       True:   {: >4d}, {: >4d},  {: >4d}, {: >4d},   {: >6.2f},  {: >2d}, {: >4.1f}".format(cx, cy, a, b, angle, noobj, rings))
                 if (noobj < 0.5) and (rings > 0) and (a>=0) and (b>=0):  # only draw if you should and if you can
-                    draw_ellipse(img, [cx, cy], [a,b], angle, color=red, thickness=2)
+                    draw_ellipse(img, [cx, cy], [a,b], angle, color=cf.red, thickness=2)
                     #cv2.putText(img, "{: >2d}".format(rings), (cx-13,cy), cv2.FONT_HERSHEY_TRIPLEX, 0.95, grey, lineType=cv2.LINE_AA);  # add a little outline for readibility
-                    cv2.putText(img, "{: >3.1f}".format(rings), (cx-10,cy+2), cv2.FONT_HERSHEY_TRIPLEX, 0.95, black, lineType=cv2.LINE_AA)  # add a little outline for readibility
-                    cv2.putText(img, "{: >3.1f}".format(rings), (cx-10,cy), cv2.FONT_HERSHEY_TRIPLEX, 0.85, red, lineType=cv2.LINE_AA)
+                    cv2.putText(img, "{: >3.1f}".format(rings), (cx-10,cy+2), cv2.FONT_HERSHEY_TRIPLEX, 0.95, cf.black, lineType=cv2.LINE_AA)  # add a little outline for readibility
+                    cv2.putText(img, "{: >3.1f}".format(rings), (cx-10,cy), cv2.FONT_HERSHEY_TRIPLEX, 0.85, cf.red, lineType=cv2.LINE_AA)
 
-            [cx, cy, a, b, cos2t, sin2t, noobj, rings] = Yp[j,an*vars_per_pred:(an+1)*vars_per_pred]   # ellipse for Prediction
+            [cx, cy, a, b, cos2t, sin2t, noobj, rings] = Yp[j,an*cf.vars_per_pred:(an+1)*cf.vars_per_pred]   # ellipse for Prediction
             cx, cy,  a, b, noobj = int(round(cx)), int(round(cy)),  int(round(a)), int(round(b)), int(round(noobj)) # OpenCV wants ints or it barfs
             angle = np.rad2deg( np.arctan2(sin2t,cos2t)/2.0 )
             if (angle < 0):
                 angle += 180
 
             if (an < 6) and (0 == noobj):
-                print("       Pred:   {: >4d}, {: >4d},  {: >4d}, {: >4d},   {: >6.2f},  {: >2d}, {: >4.1f}".format(cx, cy, a, b, angle, noobj, rings))
+                if verbosity > 0: print("       Pred:   {: >4d}, {: >4d},  {: >4d}, {: >4d},   {: >6.2f},  {: >2d}, {: >4.1f}".format(cx, cy, a, b, angle, noobj, rings))
             if (noobj < 0.5) and (rings > 0) and (a>=0) and (b>=0):  # only draw if you should and if you can
-                draw_ellipse(img, [cx, cy], [a,b], angle, color=green, thickness=2)
+                draw_ellipse(img, [cx, cy], [a,b], angle, color=cf.green, thickness=2)
                 #cv2.putText(img, "{: >2d}".format(rings), (cx-13,cy+27), cv2.FONT_HERSHEY_TRIPLEX, 0.95, grey, lineType=cv2.LINE_AA)     # white outline
-                cv2.putText(img, "{: >3.1f}".format(rings), (cx-10,cy+29), cv2.FONT_HERSHEY_TRIPLEX, 0.95, black, lineType=cv2.LINE_AA)     # dark outline
-                cv2.putText(img, "{: >3.1f}".format(rings), (cx-10,cy+27), cv2.FONT_HERSHEY_TRIPLEX, 0.85, green, lineType=cv2.LINE_AA)
+                cv2.putText(img, "{: >3.1f}".format(rings), (cx-10,cy+29), cv2.FONT_HERSHEY_TRIPLEX, 0.95, cf.black, lineType=cv2.LINE_AA)     # dark outline
+                cv2.putText(img, "{: >3.1f}".format(rings), (cx-10,cy+27), cv2.FONT_HERSHEY_TRIPLEX, 0.85, cf.green, lineType=cv2.LINE_AA)
                 if (out_csv is not None):
                     csv_str += "{},{},{},{},{},{},{}".format(cx, cy, os.path.basename(in_filename), rings, a, b, angle)+'\n'
 
         if (out_csv is not None) and (csv_str == ''):   # if nothing for this image, output zeros
             csv_str = '0,0,'+os.path.basename(in_filename)+',0,0,0,0\n'
 
-        cv2.putText(img, os.path.basename(in_filename), (7, orig_img_dims[1]-3), cv2.FONT_HERSHEY_SIMPLEX, 0.55, black, lineType=cv2.LINE_AA); # display the filename
-        cv2.putText(img, os.path.basename(in_filename), (5, orig_img_dims[1]-5), cv2.FONT_HERSHEY_SIMPLEX, 0.55, white, lineType=cv2.LINE_AA); # display the filename
+        cv2.putText(img, os.path.basename(in_filename), (7, orig_img_dims[1]-3), cv2.FONT_HERSHEY_SIMPLEX, 0.55, cf.black, lineType=cv2.LINE_AA); # display the filename
+        cv2.putText(img, os.path.basename(in_filename), (5, orig_img_dims[1]-5), cv2.FONT_HERSHEY_SIMPLEX, 0.55, cf.white, lineType=cv2.LINE_AA); # display the filename
 
         cv2.imwrite(out_filename,img)           # save output image
 
@@ -146,11 +121,6 @@ def show_pred_ellipses(Yt, Yp, file_list, num_draw=40, log_dir='./logs/', ind_ex
             with open(out_csv, "a") as file_csv_out:
                 file_csv_out.write(csv_str)
 
-    return
-
-def iou_score(ell_1, ell_2):  # compute intersection-over-union for two rotated ellipses
-    # for now: ingore rotation, and treat ellipses as boxes
-    # TODO: come back and fix this
     return
 
 
@@ -171,16 +141,18 @@ def setup_means_and_ranges(pred_shape):
     ybinsize = int( (cy_max - cy_min) / pred_shape[1])
 
     # Also, set up the means & ranges for normalization, according to the grid of predictors
-    gridmeans = np.zeros(pred_shape,dtype=dtype)
-    gridranges = np.zeros(pred_shape,dtype=dtype)
-    griddefaults = np.zeros(pred_shape,dtype=dtype)
+    gridmeans = np.zeros(pred_shape,dtype=cf.dtype)
+    gridranges = np.zeros(pred_shape,dtype=cf.dtype)
+    griddefaults = np.zeros(pred_shape,dtype=cf.dtype)
     for i in range(pred_shape[0]):
         for j in range(pred_shape[1]):
             grid_cx = i*xbinsize + cx_min + xbinsize/2
             grid_cy = j*ybinsize + cy_min + ybinsize/2
             #           format: [cx,         cy,           a,              b,     cos2theta, sin2theta,  noobj,  num_rings]   noobj = 0/1 flag for background
             griddefaults[i,j] = [grid_cx,    grid_cy,   xbinsize/2,    ybinsize/2,      -1,      0,         1,       0] # default for 'blanks'.  So noobj=1 (nothing there),  rings=0, angle is 90 degrees
-            gridmeans[i,j] =    [grid_cx,    grid_cy,   xbinsize/2,    ybinsize/2,       0,      0,       0.5,       5] # + [0]*(num_classes+1)
+            gridmeans[i,j] =    [grid_cx,    grid_cy,   xbinsize/2,    ybinsize/2,       0,      0,         0,       5] #  for noobj (=[0..1]), the means is technically 0.5, not 0.
+                                                                                                                        # but we use zero because in the norm_Y routine (below), we want to keep it [0..1] and not [-0.5..0.5]
+                                                                                                                        # to retain probabilistic interpretation, e.g. for sigmoid activation.   Recall these are OUTPUTS, not inputs
             gridranges[i,j] =   [xbinsize,  ybinsize,   xbinsize,      ybinsize,         2,      2,         1,      10] #+ [1]*(num_classes+1),  -1 to 1 is range of 2
 
     gridYi = np.copy(griddefaults)              # initialize a single grid-Y output with default values
@@ -210,38 +182,12 @@ def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None):
      true_arr is a list of antinode data which has been read from a metadata file
      pred_shape has dimensions [nx, nx, preds_per_cell, vars_per_pred]
      TODO: and each value is organized (according to loss type) as
-       cx, cy, a, b, angle, prob_exist (or 0 rings), prob_1_ring, prob_2_rings,..., prob_11_rings
+       cx, cy, a, b, angle, prob_exist, ring_count
        ... 17 variables in all
     """
     global means, ranges
 
     cx_min, cy_min, cx_max, cy_max, xbinsize, ybinsize, gridYi = setup_means_and_ranges(pred_shape)
-
-    ''' moved up  to setup_means_and_ranges
-    # Assign Defaults ---------------------------------
-    [cx_min, cy_min] =  [40,  40]
-    [cx_max, cy_max] =[ 470, 350]
-    xbinsize = int( (cx_max - cx_min) / pred_shape[0])
-    ybinsize = int( (cy_max - cy_min) / pred_shape[1])
-
-    # Also, set up the means & ranges for normalization, according to the grid of predictors
-    gridmeans = np.zeros(pred_shape,dtype=dtype)
-    gridranges = np.zeros(pred_shape,dtype=dtype)
-    griddefaults = np.zeros(pred_shape,dtype=dtype)
-    for i in range(pred_shape[0]):
-        for j in range(pred_shape[1]):
-            grid_cx = i*xbinsize + cx_min + xbinsize/2
-            grid_cy = j*ybinsize + cy_min + ybinsize/2
-            #           format: [cx,         cy,           a,              b,     cos2theta, sin2theta,  noobj,  num_rings]   noobj = 0/1 flag for background
-            griddefaults[i,j] = [grid_cx,    grid_cy,   xbinsize/2,    ybinsize/2,      -1,      0,         1,       0] # default for 'blanks'.  So noobj=1 (nothing there),  rings=0, angle is 90 degrees
-            gridmeans[i,j] =    [grid_cx,    grid_cy,   xbinsize/2,    ybinsize/2,       0,      0,       0.5,       5] # + [0]*(num_classes+1)
-            gridranges[i,j] =   [xbinsize,  ybinsize,   xbinsize,      ybinsize,         2,      2,         1,      10] #+ [1]*(num_classes+1),  -1 to 1 is range of 2
-
-    gridYi = np.copy(griddefaults)              # initialize a single grid-Y output with default values
-
-    means = gridmeans.flatten()                 # assign global means & ranges for later
-    ranges = gridranges.flatten()
-    '''
 
     # Assign True Values -----------------------------
     assigned_counts = np.zeros(gridYi.shape[0:2],dtype=np.int)   # count up how many times a given array has been assigned
@@ -252,31 +198,32 @@ def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None):
 
         ind_x = min(  max(ind_x, 0), pred_shape[0]-1)
         ind_y = min(  max(ind_y, 0), pred_shape[1]-1)
-        # Extended diagnostic:
+        # Extended diagnostic in case something's off
         '''
-        if not (assigned_counts[ind_x, ind_y] < pred_shape[2]):  # Extended diagnostic.
-            print("true_to_pred_grid: Error: Have already added ",assigned_counts[ind_x, ind_y]," out of a maximum of ",gridYi.shape[2],
-            "possible 'slots' to predictive-grid cell [",ind_x,",",ind_y,"].  Increase last dimstion of pred_shape.")
-            print("     img_filename = ",img_filename)
-            print("     true_arr = ",true_arr)
-            print("     an = ",an,", true_arr[an] = ",true_arr[an])
-            print("     gridYi[",ind_x,",",ind_y,"] = ",gridYi[ind_x,ind_y])
-            print("     xbinsize, ybinsize = ",xbinsize, ybinsize)
+        if False:  # only enabled for diagnostics
+            if not (assigned_counts[ind_x, ind_y] < pred_shape[2]):  # Extended diagnostic.
+                print("true_to_pred_grid: Error: Have already added ",assigned_counts[ind_x, ind_y]," out of a maximum of ",gridYi.shape[2],
+                "possible 'slots' to predictive-grid cell [",ind_x,",",ind_y,"].  Increase last dimstion of pred_shape.")
+                print("     img_filename = ",img_filename)
+                print("     true_arr = ",true_arr)
+                print("     an = ",an,", true_arr[an] = ",true_arr[an])
+                print("     gridYi[",ind_x,",",ind_y,"] = ",gridYi[ind_x,ind_y])
+                print("     xbinsize, ybinsize = ",xbinsize, ybinsize)
 
-            err_img_filename = "true_to_pred_grid_err.png"
-            print("     Drawing to ",err_img_filename)
-            img = load_img(img_filename)                 # this is a PIL image
-            #img_dims = img_to_array(img).shape
-            img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)      # convert from PIL to OpenCV
+                err_img_filename = "true_to_pred_grid_err.png"
+                print("     Drawing to ",err_img_filename)
+                img = load_img(img_filename)                 # this is a PIL image
+                #img_dims = img_to_array(img).shape
+                img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)      # convert from PIL to OpenCV
 
-            for an2 in range(true_arr.shape[0]):
-                print("     Drawing ellipse ",an2," of ",true_arr.shape[0],": ",true_arr[an2])
-                [cx, cy, a, b, cos2t, sin2t, noobj, rings] = true_arr[an2]   # ellipse for Testing
-                cx, cy,  a, b = int(round(cx)), int(round(cy)),  int(round(a)), int(round(b))  # OpenCV wants ints or it barfs
-                angle = np.rad2deg( np.arctan2(sin2t,cos2t)/2.0 )
-                draw_ellipse(img, [cx, cy], [a,b], angle, color=red, thickness=2)
-            cv2.imwrite(err_img_filename,img)
-        '''
+                for an2 in range(true_arr.shape[0]):
+                    print("     Drawing ellipse ",an2," of ",true_arr.shape[0],": ",true_arr[an2])
+                    [cx, cy, a, b, cos2t, sin2t, noobj, rings] = true_arr[an2]   # ellipse for Testing
+                    cx, cy,  a, b = int(round(cx)), int(round(cy)),  int(round(a)), int(round(b))  # OpenCV wants ints or it barfs
+                    angle = np.rad2deg( np.arctan2(sin2t,cos2t)/2.0 )
+                    draw_ellipse(img, [cx, cy], [a,b], angle, color=red, thickness=2)
+                cv2.imwrite(err_img_filename,img)
+            '''
         assert( assigned_counts[ind_x, ind_y] < pred_shape[2] )  # make sure we're not exceeding our allotment of predictors per grid location
 
         gridYi[ind_x,ind_y, assigned_counts[ind_x, ind_y]] = true_arr[an]
@@ -287,8 +234,6 @@ def true_to_pred_grid(true_arr, pred_shape, num_classes=11, img_filename=None):
 def add_to_stack(a,b):
     """
     makes a list of lists of lists. Indices are  [image i][antinode j][params within antinode j]
-    TODO: I am not proud of this part of the code, and the ensuing np.array(list()).tolist() craziness elsewhere, But
-             having something working ATM is sufficient.
     """
     if (a is None):
         return [b]
@@ -327,9 +272,9 @@ def build_Y(total_load, meta_file_list, img_file_list, pred_grid=[6,6,2], set_me
     """
     Reads in metadata and assigns them to the target output "Y" that the network is to be trained on
 
-    Note: vars_per_pred is a global defined above.  TODO: make it a local parameter passed in
     """
-    pred_shape = [pred_grid[0],pred_grid[1],pred_grid[2],vars_per_pred]  # shape of output predictions = grid_shape * vars per_grid
+
+    pred_shape = [pred_grid[0],pred_grid[1],pred_grid[2],cf.vars_per_pred]  # shape of output predictions = grid_shape * vars per_grid
     pred_shape = np.array(pred_shape,dtype=np.int)
     num_outputs = np.prod(np.array(pred_shape))
 
@@ -345,7 +290,7 @@ def build_Y(total_load, meta_file_list, img_file_list, pred_grid=[6,6,2], set_me
     print("          Using annotations from metadata to setup 'true answers' Y and grid of predictors...")
     true_stack = np.array(true_stack)
 
-    Y = np.zeros([total_load,num_outputs],dtype=dtype)          # allocate Ytrue
+    Y = np.zeros([total_load,num_outputs],dtype=cf.dtype)          # allocate Ytrue
     for i in range(total_load):                         # Divvy up all true values to grid of predictors
         # add true values to Y according to which 'grid cell' they apply to
         gridYi = true_to_pred_grid(np.array(true_stack[i]), pred_shape, img_filename=img_file_list[i])
@@ -375,9 +320,9 @@ def build_X(total_load, img_file_list, force_dim=224, grayscale=False):
     img_dims = img.shape
     print("          img_dims = ",img_dims)
     if (grayscale):
-        X = np.zeros((total_load, img_dims[0], img_dims[1],1),dtype=dtype)
+        X = np.zeros((total_load, img_dims[0], img_dims[1],1),dtype=cf.dtype)
     else:
-        X = np.zeros((total_load, img_dims[0], img_dims[1], img_dims[2]),dtype=dtype)
+        X = np.zeros((total_load, img_dims[0], img_dims[1], img_dims[2]),dtype=cf.dtype)
 
     # TODO: parallelize this?
     for i in range(total_load):     # image info into X array
@@ -405,8 +350,8 @@ def build_X(total_load, img_file_list, force_dim=224, grayscale=False):
 
 
 
-def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscale=True, \
-        force_dim=331, pred_grid=[6,6,2], batch_size=None, shuffle=True):
+def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscale=False, \
+        force_dim=224, pred_grid=[6,6,2], batch_size=None, shuffle=True):
     """
     builds the Training or Test data set
     Inputs:
@@ -420,7 +365,7 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
       batch_size        Used only to force the dataset size to be a multiple of this number
     Outputs:
       X, Y              input and target data
-      pred_shape        Tells how to unflatten Y meaningfully. (it's equal to pred_grid.shape with vars_per_pred tacked on the end)
+      pred_shape        Tells how to unflatten Y meaningfully. (it's equal to pred_grid.shape with cf.vars_per_pred tacked on the end)
     """
     global means, ranges
 
@@ -429,7 +374,7 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
     # Setup: Get lists of files to read from
     #-------------------------------------------
     img_file_list = sorted(glob.glob(path+'*.png'))
-    meta_file_list = sorted(glob.glob(path+'*'+meta_extension))
+    meta_file_list = sorted(glob.glob(path+'*'+cf.meta_extension))
     print("      Check: len(img_file_list) = "+str(len(img_file_list))+", and len(meta_file_list) = "+str(len(meta_file_list)) )
     assert len(img_file_list) == len(meta_file_list), "Error: len(img_file_list) = " \
         +str(len(img_file_list))+" but len(meta_file_list) = "+str(len(meta_file_list))

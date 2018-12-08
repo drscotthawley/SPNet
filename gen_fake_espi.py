@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 
 # Generates 'fake' images akin to the ESPI images of steelpan drums, from
 # https://www.zooniverse.org/projects/achmorrison/steelpan-vibrations
@@ -18,7 +18,7 @@ import random
 import os
 import time
 import multiprocessing as mp
-from utils import *
+from spnet.utils import *
 import sys, traceback
 from shutil import get_terminal_size
 
@@ -222,12 +222,10 @@ def gen_images(task):
     else:
         # have different tasks generate different parts of the dataset
         val = task*1.0/num_tasks
-        if (val < 0.6):     # 3 * 20% = 60% Train
+        if (val < 0.8):
             dirname = 'Train'
-        elif (val >= 0.8):    # 20%  Test
-            dirname = 'Test'
         else:
-            dirname = 'Val'    # 20% Val
+            dirname = 'Val'
 
     # used for spacing out task output
     pad_space = max(14, int(round( get_terminal_size().columns / (num_tasks+0.5))))
@@ -285,7 +283,7 @@ def gen_fake_espi(numframes=1000, train_only=True):
 
     make_sure_path_exists('Train')
     make_sure_path_exists('Val')
-    make_sure_path_exists('Test')
+    #make_sure_path_exists('Test')
 
 
     num_procs = mp.cpu_count()
@@ -314,7 +312,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="trains network on training dataset")
     parser.add_argument('-n', '--numframes', type=int, help='Number of images to generate', default=500)
     parser.add_argument('-a', '--all',
-        help='general all data (Val & Test too), default is Train only', default=False, action='store_true')
+        help='generate all data , default is Train only', default=False, action='store_true')
     args = parser.parse_args()
 
     gen_fake_espi(numframes=args.numframes, train_only=(not args.all))

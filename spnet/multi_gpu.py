@@ -1,19 +1,21 @@
 
+
 # Originally from https://github.com/kuza55/keras-extras/blob/master/utils/multi_gpu.py
-# SHHawley updated to Keras 2, added make_serial & get_available_gpus, and gpu_count=-1 flag
+# SHHawley updated to Keras 2, added get_serial_part & get_available_gpus, and gpu_count=-1 flag
 
 from keras.layers import concatenate
 from keras.layers.core import Lambda
+import keras.backend as K
 from keras.models import Model
 from keras.callbacks import Callback
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
 
-
-def make_serial(model, parallel=True):
+def get_serial_part(model, parallel=True):
     """
     Undoes make_parallel, but keyword included in case it's called on a serial model
+    TODO: even better would be an internal check to see if model is parallel or serial
     """
     if (parallel):
         return model.layers[-2]
@@ -24,19 +26,25 @@ def make_serial(model, parallel=True):
 def get_available_gpus():
     """
     from https://stackoverflow.com/questions/38559755/how-to-get-current-available-gpus-in-tensorflow
+      but updated thanks to http://blog.datumbox.com/5-tips-for-multi-gpu-training-with-keras/
     """
-    local_device_protos = device_lib.list_local_devices()
+    local_device_protos = K.get_session().list_devices() #  device_lib.list_local_devices()
     return [x.name for x in local_device_protos if x.device_type == 'GPU']
 
 
-def make_parallel(model, gpu_count=-1):
+def make_parallel(model):
     """
     Taken from https://github.com/kuza55/keras-extras/blob/master/utils/multi_gpu.py
+    Uses all available GPUs.  To limit number of GPUs used, call program from command line with CUDA_VISIBLE_DEVICES=...
     """
-    if (gpu_count < 0):                 # gpu_count < 0 will mean  "use all available GPUs"
-        gpus =  get_available_gpus()
-        gpu_count = len(gpus)
-        print("make_parallel:",gpu_count,"GPUs detected.")
+    gpu_list =  get_available_gpus()
+    gpus_detected = len(gpu_list)
+    if (gpus_detected < 2):
+        return model    # no GPU parallelism
+
+    gpu_count = gpus_detected
+
+    print("make_parallel:",gpus_detected,"GPUs detected.  Parallelizing across",gpu_count,"GPUs...")
 
     def get_slice(data, idx, parts):
         shape = tf.shape(data)
@@ -78,20 +86,3 @@ def make_parallel(model, gpu_count=-1):
             merged.append(concatenate(outputs, axis=0))
 
         return Model(inputs=model.inputs, outputs=merged)
-
-
-class ParallelCheckpointCallback(Callback):
-    """
-    Keras & HDF5 don't play nice when checkpointing data-parallel models,
-    so we use the 'serial part' as per @fchollet's remarks in
-    https://github.com/keras-team/keras/issues/8649#issuecomment-348829198
-    """
-    def __init__(self, model, filepath="weights.hdf5", save_every=1):
-         self.model_to_save = make_serial(model)
-         self.filepath = filepath
-         self.save_every = save_every
-
-    def on_epoch_end(self, epoch, logs=None):
-        if (0 == epoch % self.save_every) and ((epoch > 0) or (1 == self.save_every)):
-            print("Saving checkpoint to",self.filepath)
-            self.model_to_save.save_weights(self.filepath)  # on restart, we only load the weights

@@ -11,11 +11,11 @@ import numpy as np
 import cv2
 import glob
 import os
-from utils import *
+from spnet.utils import *
 import random
 from multiprocessing import Pool
 from functools import partial
-
+from keras.callbacks import Callback
 
 meta_extension = ".csv"
 
@@ -131,7 +131,7 @@ def rotate_image(img, metadata, file_prefix, rot_angle, rot_origin=None):
     height, width, channels = img.shape
     if (rot_origin is None):                            # if not specified, rotate about image center
         rot_origin = (width/2, height/2)
-    rot_matrix = cv2.getRotationMatrix2D(rot_origin, rot_angle, 1.0)
+    rot_matrix = cv2.getRotationMatrix2D(rot_origin, rot_angle, 1.0) # used for image and for changing cx, cy
     new_img = cv2.warpAffine(new_img, rot_matrix, (width,height))
 
     new_metadata = []
@@ -148,7 +148,7 @@ def rotate_image(img, metadata, file_prefix, rot_angle, rot_origin=None):
     return new_img, new_metadata, new_prefix
 
 
-def invert_image(img, metadata, file_prefix):  # unused
+def invert_image(img, metadata, file_prefix):  # inverts color; unused; not appropos to this dataset
     prefix = file_prefix +"_i"
     return cv2.bitwise_not(img.copy()), list(metadata), prefix
 
@@ -182,6 +182,10 @@ def translate_image(img, metadata, file_prefix, trans_index):
 def augment_one_file(img_file_list, meta_file_list, n_augs, file_index):
     """
     Here is where successive augmentations of a single file (in a list) takes place
+
+    Currently, we only rotate and/or translate.  Further augmentations adding cutout,
+    noise and/or flipping the image now happens 'on the fly' via the
+    AugmentOnTheFly() callback in train_spnet.py
     """
     i = file_index
     if (0 == i % 10):
@@ -194,8 +198,10 @@ def augment_one_file(img_file_list, meta_file_list, n_augs, file_index):
     orig_metadata = read_metadata(meta_filename)
 
     for aug in range(n_augs):
-        # flip image
-        flip_param = np.random.choice([-2,0])   # leave unchanged, or flip vertically; no other flips are relevant to this dataset
+        img, metadata, prefix = orig_img, orig_metadata, orig_prefix
+
+        #flip image
+        flip_param = np.random.choice([-2,-1,0,1])
         img, metadata, prefix = flip_image(orig_img, orig_metadata, orig_prefix, flip_param)
 
         # rotate image +/- by some small random angle
@@ -214,58 +220,8 @@ def augment_one_file(img_file_list, meta_file_list, n_augs, file_index):
             cv2.imwrite(prefix+'.png', img)
     return
 
-    '''
-    # --- Old way of doing augmentation: nested for loops
 
-    # flip image?  note for the Zooniverse steelpan dataset, horizontal flipping is irrelevant; arguably so is vertical but we'll do it
-    for flip_param in [-2,0]: # ,1,-1]:  # flip  [ not at all, vertical, horizontal, both v & h ]
-        flip_img, flip_metadata, flip_prefix = flip_image(img, metadata, prefix, flip_param)
-
-        blur_img = flip_img.copy()
-        blur_prefix = flip_prefix
-        blur_metadata = list(flip_metadata)
-        for do_blur in [False]:#  , True]:  False = Nah. Real steelpan images are already blurry enough
-            if do_blur:
-                blur_img, blur_metadata, blur_prefix = blur_image( blur_img, flip_metadata, flip_prefix)
-
-            # rotate image (a little bit)?
-            num_rot = 4             # number of rotated image variations to generate
-            for irot in range(num_rot):
-                if (0 == irot):
-                    rot_angle = 0           # for the first instance, don't rotate at all
-                else:
-                    rot_angle = np.sign(random.random()-0.5)*(1 + 5*np.random.random())  # rotate by 1 to 6 degrees, either direction
-                rot_img, rot_metadata, rot_prefix = rotate_image( blur_img, blur_metadata, blur_prefix, rot_angle)
-
-
-                # cutout image?
-                for cutout_param in [0]:#  Nah. Wait & do cutout on the fly [2,3,4,6]:  # various #s of cutout regions
-                    co_img, co_metadata, co_prefix = cutout_image(rot_img, rot_metadata, rot_prefix, cutout_param)
-
-
-                    inv_img = co_img.copy()
-                    inv_metadata = list(co_metadata)
-                    inv_prefix = co_prefix
-                    # invert color?
-                    for do_inv in [False]:#  , True]:    # actually @achmorrison specifies: count rings using white/grey not black
-                        if (do_inv):
-                            inv_img, inv_metadata, inv_prefix =invert_image( rot_img, rot_metadata, rot_prefix)
-
-                        # translate image?   Note that object detection is not *just* a CNN, so translations do matter
-                        for do_trans in range(3):
-                            trans_img, trans_metadata, trans_prefix = translate_image( inv_img, inv_metadata, inv_prefix, do_trans)
-
-
-                            #After all the above changes: Actually output the img file and the metadata file
-                            caption = caption_from_metadata( trans_metadata )
-                            if (True):     # TODO: quick flag to turn off file writing (if set to False)
-                                with open(trans_prefix+meta_extension, "w") as text_file:
-                                    text_file.write(caption)
-                                cv2.imwrite(trans_prefix+'.png',trans_img)
-    return
-    '''
-
-def augment_data(path='Train/', n_augs=19):
+def augment_data(path='Train/', n_augs=49):
     print("augment_data: Augmenting data in",path,'by a factor of',n_augs+1)
 
     img_file_list = sorted(glob.glob(path+'*.png'))
@@ -285,12 +241,14 @@ def augment_data(path='Train/', n_augs=19):
     new_numfiles = len(sorted(glob.glob(path+'*.png')))
     print("Augmented from",numfiles,"files up to",new_numfiles)
 
+
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="augments data in path")
     parser.add_argument('-p', '--path', #type=argparse.string,
         help='dataset directory in which to augment', default="Train/")
-    parser.add_argument('-n', '--naugs', type=int, help='number of augmentations per image to generate', default=19)
+    parser.add_argument('-n', '--naugs', type=int, help='number of augmentations per image to generate', default=49)
     args = parser.parse_args()
 
     augment_data(pat=args.path, n_augs=args.naugs)

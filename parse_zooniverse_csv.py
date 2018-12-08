@@ -92,6 +92,6 @@ for index, row in df.iterrows():
 
     # add the data
     # datastring = "[{0}, {1}, {2}, {3}, {4}, {5}]".format(cx,cy,a,b,angle,rings) # Old hawley format
-    datastring = "{0}, {1}, {2}, {3}, {4}, {5}".format(cx,cy,a,b,angle,rings) # CSV-appropriate format
+    datastring = "{0},{1},{2},{3},{4},{5}".format(cx,cy,a,b,angle,rings) # CSV-appropriate format
     with open(meta_file_path, "a") as meta_file:
         meta_file.write(datastring+"\n")
