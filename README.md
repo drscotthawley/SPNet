@@ -25,14 +25,26 @@ Built in [Keras](https://keras.io/), running [MobileNet](https://arxiv.org/abs/1
 
 ## Minimal usage documentation:
 
-### Syntethic Data:
+### Installation
+Create a conda environment, but use pip for package installs
+```
+git clone git@github.com:drscotthawley/SPNet.git
+cd SPNet
+conda create --name spnet python=3.5.4
+conda activate spnet
+pip install -r requirements.txt
+```
+(To remove the environment: `conda env remove --name spnet`)
 
+### Syntethic Data:
+The 'real' datasets is Andrew Morrison's business. But you can test SPNet using 'fake' images:
     ./gen_fake_espi
 Generates 50,000 fake images, placing them in directories Train, Val and Test.
 
 
     ./train_fake_espi
-Actually does the training.  Has a few options, e.g. where files are/go, and how much of dataset to use.  Try --help.
+Actually does the training.  It has a few options, e.g. where files are/go, and 
+how much of dataset to use.  Try running `./train_fake_espi --help`
 
 More later.
 
