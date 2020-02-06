@@ -13,7 +13,7 @@ from spnet import models, utils, multi_gpu, diagnostics, callbacks
 import random
 
 
-def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0, batch_size=32, \
+def train_network(weights_file="weights.hdf5", datapath=".", fraction=1.0, batch_size=32, \
         epochs=30, pred_grid=[6,6,2], noaugment=False):
     # for deterministic results (TODO: remove later for more general testing)
     np.random.seed(1)
@@ -32,11 +32,13 @@ def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0, 
         force_dim = 331
 
     # Load data
-    X_train, Y_train, train_file_list, pred_shape = utils.build_dataset(path=datapath, \
+    trainpath = datapath + "/Train/"
+    valpath = datapath + "/Val/"
+    X_train, Y_train, train_file_list, pred_shape = utils.build_dataset(path=trainpath, \
         load_frac=fraction, set_means_ranges=True, batch_size=batch_size, pred_grid=pred_grid, \
         grayscale=grayscale, force_dim=force_dim)
-    valpath="Val/"
-    X_val, Y_val, val_file_list, pred_shape  = utils.build_dataset(path=valpath, load_frac=1.0, \
+
+    X_val, Y_val, val_file_list, pred_shape  = utils.build_dataset(path=valpath, load_frac=fraction, \
         set_means_ranges=False, batch_size=batch_size, pred_grid=pred_grid,\
         grayscale=grayscale, force_dim=force_dim)
 
@@ -52,10 +54,11 @@ def train_network(weights_file="weights.hdf5", datapath="Train/", fraction=1.0, 
     myprogress = callbacks.MyProgressCallback(X_val=X_val, Y_val=Y_val, val_file_list=val_file_list, log_dir=log_dir, pred_shape=pred_shape)
     checkpointer = callbacks.ParallelCheckpointCallback(serial_model, filepath=weights_file, save_every=10)
     lr_sched = callbacks.OneCycleScheduler(lr_max=5e-4, n_data_points=X_train.shape[0], epochs=epochs, batch_size=batch_size, verbose=1)
-    #Tenosrboard can be a memory hog. tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=0, write_graph=False, write_images=False)
+    #tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=0, write_graph=False, write_images=False)  #Tensorfboard can be a memory hog.
     #earlystopping = EarlyStopping(patience=5)
     callback_list = [myprogress, checkpointer, lr_sched]# , earlystopping]#, tensorboard]
     if not noaugment:
+        print("Adding callback for augment on the fly")
         aug_on_fly = callbacks.AugmentOnTheFly(X_train, Y_train, aug_every=2)
         callback_list.append(aug_on_fly)
 
@@ -89,7 +92,7 @@ if __name__ == '__main__':
      # greater batch size runs faster but may yield Out Of Memory errors
      # also note that small batches may yield better generalization: https://arxiv.org/pdf/1609.04836.pdf
     parser.add_argument('-b', '--batch_size', type=int, help='Batch size to use', default=36)
-    parser.add_argument('-d', '--datapath', help='Train dataset directory with list of classes', default="Train/")
+    parser.add_argument('-d', '--datapath', help='Train dataset directory with list of classes', default="./")
     parser.add_argument('-e', '--epochs', type=int, help='Number of epochs to run', default=30)
     parser.add_argument('-f', '--fraction', type=float, help='Fraction of dataset to use (for quick testing: -f 0.05)', default=1.0)
     parser.add_argument('-g', '--grid', help='Shape of predictor grid', default="6x6x2")
