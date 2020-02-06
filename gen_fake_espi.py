@@ -38,7 +38,9 @@ white = (255)
 black = (0)
 grey = (128)
 
-blur_prob = 0.9    # probability that an image gets blurred
+blur_prob = 0.5    # probability that an image gets blurred
+
+min_line_width = 4  # number of pixels per each ring (dark-light pair)
 
 # TODO: haven't figured out how to pass args when multiprocessing; the following globals should be replaced w/ args at some point
 # for now, we define them globally but set them in __main__
@@ -101,6 +103,7 @@ def get_ellipse_box(center, axes, angle):  # converts ellipse to bounding box
     ymin = center[1] - delta_y
     xmax = center[0] + delta_x
     ymax = center[1] + delta_y
+    # just a bit of error-correction code
     if (xmin > xmax):
         xmin,xmax = swap(xmin,xmax)
     if (ymin > ymax):
@@ -162,12 +165,15 @@ def draw_antinodes(img,num_antinodes=1):
     for an in range(num_antinodes): # draw a bunch of antinodes
 
         axes = (random.randint(15,int(imWidth/3.5)), random.randint(15,int(imHeight/3.5)))   # semimajor and semiminor axes of ellipse
-        axes = sorted(axes, reverse=True)   # do descending order, for definiteness
+        axes = sorted(axes, reverse=True)   # do descending order, for definiteness. i.e. so a > b
 
 
         # TODO: based on viewing real images: for small antinodes, number of rings should also be small
         num_rings = random.randint(1, 11)            # well say that an antinode has at least 1 ring
 
+        # make sure line width isn't too small to be resolved
+        if (axes[1]/num_rings < min_line_width):
+            num_rings = axes[1] // min_line_width
 
         center = (random.randint(axes[0], imWidth-axes[0]),
             random.randint(axes[1], imHeight-axes[1]))
@@ -184,6 +190,10 @@ def draw_antinodes(img,num_antinodes=1):
             # if there's a problem, then generate new values - "Re-do"
             axes = (random.randint(25, int(imWidth/3)), random.randint(25, int(imHeight/3)))
             axes = sorted(axes, reverse=True)   # do descending order
+            # make sure line width isn't too small to be resolved
+            if (axes[1]/num_rings < min_line_width):
+                num_rings = axes[1] // min_line_width
+
             center = (random.randint(axes[0], imWidth-axes[0]),
                 random.randint(axes[1], imHeight-axes[1]))
             angle = random.randint(1, 180)
@@ -255,7 +265,7 @@ def gen_images(task):
 
         blur_dice_roll = np.random.random()
         if (blur_dice_roll <= blur_prob):
-            blur_ksize = random.choice([3,5,7])
+            blur_ksize = random.choice([3,5])
             img = blur_image(img, kernel_size=blur_ksize)
 
         # post-blur noise
