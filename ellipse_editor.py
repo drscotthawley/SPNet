@@ -6,7 +6,6 @@ Author: Scott H. Hawley  License: MIT (below)
 
 Reads a CSV file of the format cx,cy,a,b,angle,rings  (a & b are ellipse axes), as in..
 $ cat test_img.csv
-cx,cy,a,b,angle,rings
 37,42,30,42,63,0
 402,71,37,20,41,0
 459,256,40,19,45,0
@@ -204,7 +203,7 @@ class EllipseEditor(tk.Frame):
         sys.exit()
     def on_skey(self,event):
         print("Saving file ",self.meta_file)
-        self.df.to_csv(self.meta_file,index=False)
+        self.df.to_csv(self.meta_file,index=False,header=None)
     def on_rightarrow(self,event):
         self.file_index += 1
         if (self.file_index >= len(meta_file_list)):
