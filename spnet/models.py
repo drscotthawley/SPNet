@@ -307,7 +307,7 @@ def create_model_functional(X, Y0size=576, freeze_fac=0.75):
     print("After initial convolutions & pooling, x.shape = ",x.shape)
 
     # 'PreFab'/standard CNN middle section
-    weights = 'imagenet'  # None or 'imagenet'.  Note: If you ever get "You are trying to load a model with __layers___", you need to add by_name=True in the load_model call for your Prefab CNN
+    weights = 'imagenet'  # None or 'imagenet'.  Note: If you ever get "You are trying to load a model with __layers___", you need to add by_name=True in the load_weights call for your Prefab CNN
     if cf.basemodel == 'mobilenet':
         # with CustomObjectScope({'relu6': ReLU(6.),'DepthwiseConv2D': DepthwiseConv2D}):  # newer keras
         with CustomObjectScope({'relu6': keras.applications.mobilenet.relu6,'DepthwiseConv2D': keras.applications.mobilenet.DepthwiseConv2D, 'custom_loss':custom_loss, 'tf':tf}):   # older keras
@@ -402,7 +402,7 @@ def setup_model(X, Y0size=576, try_checkpoint=True, no_cp_fatal=False, \
     this is the main routine for setting up the NN model, either 'from scratch' or loading from checkpoint
     """
 
-    print("Initializing blank model")
+    print("Initializing blank model: Y0size =",Y0size)
     if cf.model_type == 'simple':
         model = create_model_simple(X, Y0size=Y0size, freeze_fac=freeze_fac)
     else:
