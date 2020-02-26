@@ -28,6 +28,9 @@ def predict_network(weights_file="", datapath="", fraction=1.0, log_dir="", batc
 
     print("Getting data..., fraction = ",fraction)
     img_file_list = sorted(glob.glob(datapath+'/*.png'))
+    if len(img_file_list) == 0:
+        img_file_list += sorted(glob.glob(datapath+'/*.bmp'))
+
     total_files = len(img_file_list)
     total_load = int(total_files * fraction)
     if (batch_size is not None):                # keras gets particular: dataset size must be mult. of batch_size
