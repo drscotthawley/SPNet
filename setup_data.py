@@ -57,8 +57,14 @@ def distribute_dataset():
 # --- Main code
 if __name__ == "__main__":
     random.seed(1)  # for determinism
+    import argparse
+    parser = argparse.ArgumentParser(description="Sets up real data, augments")
+    parser.add_argument('-n', '--naugs', type=int, help='number of augmentations per image to generate', default=49)
+
+    args = parser.parse_args()
+
     print("Clearing directories Train/ Test/ Val/")
     os.system("rm -rf Test Train Val")
     numfiles = distribute_dataset()
-    augment_data()
+    augment_data(n_augs=args.naugs)
     #gen_fake_espi(numframes=numfiles*8, train_only=True)  # add synthetic data to Training set
