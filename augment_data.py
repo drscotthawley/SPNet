@@ -221,9 +221,9 @@ def augment_one_file(img_file_list, meta_file_list, n_augs, file_index):
     return
 
 
-def augment_data(path='Train/', n_augs=49):
+def augment_data(path='Train', n_augs=39):
     print("augment_data: Augmenting data in",path,'by a factor of',n_augs+1)
-
+    path += '/'
     img_file_list = sorted(glob.glob(path+'*.png'))
     meta_file_list = sorted(glob.glob(path+'*'+meta_extension))
     assert( len(img_file_list) == len(meta_file_list))
@@ -251,4 +251,4 @@ if __name__ == "__main__":
     parser.add_argument('-n', '--naugs', type=int, help='number of augmentations per image to generate', default=49)
     args = parser.parse_args()
 
-    augment_data(pat=args.path, n_augs=args.naugs)
+    augment_data(path=args.path, n_augs=args.naugs)
