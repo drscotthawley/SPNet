@@ -413,15 +413,12 @@ class OneCycleScheduler(Callback):
     def __init__(self, **kwargs):
         super(OneCycleScheduler, self).__init__()
         self.verbose = kwargs.get('verbose', 0)
-        self.lrs = get_1cycle_schedule(**kwargs)
+        self.lrs = get_1cycle_schedule(**kwargs) # get a look-up table of learing rate values per iteration
         self.iteration = 0
 
     def on_batch_begin(self, batch, logs=None):
-        lr = self.lrs[self.iteration]
-        K.set_value(self.model.optimizer.lr, lr)    # here's where the assignment takes place
-        if self.verbose > 1:
-            print('\nIteration %06d: OneCycleScheduler setting learning '
-                  'rate to %s.' % (self.iteration, lr))
+        # assign the learning rate for this batch by reading from look-up table
+        K.set_value(self.model.optimizer.lr, self.lrs[self.iteration])
         self.iteration += 1
 
     def on_epoch_end(self, epoch, logs=None):       # this is unchanged from Keras LearningRateScheduler
