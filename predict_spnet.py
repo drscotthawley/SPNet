@@ -18,8 +18,8 @@ from distutils.version import LooseVersion
 from operator import itemgetter
 import PIL
 import io
-from models import *
-from utils import *
+from spnet.models import *
+from spnet.utils import *
 
 
 
@@ -27,7 +27,7 @@ def predict_network(weights_file="", datapath="", fraction=1.0, log_dir="", batc
     np.random.seed(1)
 
     print("Getting data..., fraction = ",fraction)
-    img_file_list = sorted(glob.glob(datapath+'*.png'))
+    img_file_list = sorted(glob.glob(datapath+'/*.png'))
     total_files = len(img_file_list)
     total_load = int(total_files * fraction)
     if (batch_size is not None):                # keras gets particular: dataset size must be mult. of batch_size
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--fraction', type=float,
         help='Fraction of dataset to use', default=1.0)
     parser.add_argument('-l', '--logdir',
-            help='Directory of log files', default='logs/Predicting/')
+            help='Directory of log/output files', default='logs/Predicting/')
     parser.add_argument('-b', '--batch_size', type=int, help='Batch size to use', default=32)
 
     args = parser.parse_args()
