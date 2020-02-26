@@ -21,6 +21,7 @@ import multiprocessing as mp
 from spnet.utils import *
 import sys, traceback
 from shutil import get_terminal_size
+import glob
 
 winName = 'ImgWindowName'
 #imWidth = 224                  # needed for MobileNet
@@ -38,7 +39,7 @@ white = (255)
 black = (0)
 grey = (128)
 
-blur_prob = 0.5    # probability that an image gets blurred
+blur_prob = 0.3    # probability that an image gets blurred
 
 min_line_width = 4  # number of pixels per each ring (dark-light pair)
 
@@ -52,6 +53,50 @@ frames_per_task= 0
 
 train_only_global = True           # Only gen fake images for the training set. False= make Test & Val images too
 pad = ''
+
+
+def bandpass_mixup(img_fake, path_real='/home/shawley/datasets/parsed_zooniverze_steelpan/'):
+    '''
+    For more realistic-looking images, replace low & high frequency components ('background')
+    of fake images using those components from real images
+    '''
+
+    # get a random background from the group of 'true' images
+    file_true = random.choice(glob.glob(path_real+'/*.png'))
+    img_true = cv2.imread(file_true, cv2.IMREAD_GRAYSCALE)
+    # maybe flip the image
+    flipchoice = np.random.choice([-1,0,1,2])
+    if (flipchoice != 2):
+        img_true = cv2.flip(img_true, flipchoice)
+
+    # take fourier transforms of fake and true images
+    dft_true = cv2.dft(np.float32(img_true),flags = cv2.DFT_COMPLEX_OUTPUT)
+    dft_shift_true = np.fft.fftshift(dft_true)    # center the "dc" part of image
+
+    dft_fake = cv2.dft(np.float32(img_fake),flags = cv2.DFT_COMPLEX_OUTPUT)
+    dft_shift_fake = np.fft.fftshift(dft_fake)    # center the "dc" part of image
+
+    # Set up a filter: Keep the Lows and the Highs
+    # create a rectagular mask first, center square is 1, remaining all zeros. LPF
+    rows, cols = img_fake.shape
+    crow,ccol = rows//2 , cols//2
+    wl, wh = 8, 0     #  width for LPF and HPF respectively
+    mask = np.zeros((rows,cols,2),np.uint8)
+    mask[crow-wl:crow+wl, ccol-wl:ccol+wl] = 1   # LPF
+    if wh > 0:
+        mask[0:wh,:] = 1    # HPF
+        mask[-wh:,:] = 1    # HPF
+        mask[:,0:wh] = 1    # HPF
+        mask[:,-wh:] = 1    # HPF
+    fshift = np.random.rand()*3*dft_shift_true*mask + (1-mask)*dft_shift_fake   # L/H from true, mids from fake
+
+    # inverse DFT
+    f_ishift = np.fft.ifftshift(fshift)
+    img_back = cv2.idft(f_ishift)
+    img_back = cv2.magnitude(img_back[:,:,0],img_back[:,:,1])
+    cv2.normalize(img_back, img_back, 0, 255, cv2.NORM_MINMAX)
+
+    return np.clip(img_back, 0, 255)
 
 
 def blur_image(img, kernel_size=7):
@@ -116,11 +161,12 @@ def draw_rings(img,center,axes,angle=45,num_rings=5):
     if (0==num_wbrings):
         num_wbrings = 1      # sorry, gotta avoid any & all errors because MP is a pain to debug
     thickness = int(round( min(axes)/(num_wbrings) ))
+    rand_start = np.random.choice([0,1])  # have center as dark or light
     for j in range(num_wbrings):
-        if (0 == j % 2):
+        if (0 == (rand_start + j) % 2):
             color = black
         else:
-            color = grey
+            color = grey + 10  # little bit brighter than the surroundings
         thisring_axes = [axes[i] * (j+1)*1.0/(num_wbrings+1) for i in range(len(axes))]
         ellipse = draw_ellipse(img,center,thisring_axes,angle,color=color, thickness=thickness)
     return ellipse   # returns outermost ellipse
@@ -169,7 +215,8 @@ def draw_antinodes(img,num_antinodes=1):
 
 
         # TODO: based on viewing real images: for small antinodes, number of rings should also be small
-        num_rings = random.randint(1, 11)            # well say that an antinode has at least 1 ring
+        max_rings = min(axes[1] // 8, 11)                  # '8' chosen from experience looking at the data
+        num_rings = random.randint(1, max_rings)            # well say that an antinode has at least 1 ring
 
         # make sure line width isn't too small to be resolved
         if (axes[1]/num_rings < min_line_width):
@@ -182,7 +229,7 @@ def draw_antinodes(img,num_antinodes=1):
 
         # make sure they don't overlap, and are in bounds of image
         # TODO: the following random placement is painfully inefficient
-        trycount, maxtries = 0, 200000
+        trycount, maxtries = 0, 2000
         while (   ( (True == does_overlap_previous(box, boxes_arr))
             or (box[0]<0) or (box[2] > imWidth)
             or (box[1]<0) or (box[3] > imHeight)  ) and (trycount < maxtries) ):
@@ -269,8 +316,15 @@ def gen_images(task):
             img = blur_image(img, kernel_size=blur_ksize)
 
         # post-blur noise
-        noise = cv2.randn(np.zeros(np_dims, np.uint8),50,50);
+        noise = cv2.randn(np.zeros(np_dims, np.uint8),40,40); # normal dist, mean 40 std 40
         img = cv2.add(img, noise)
+
+        # further degrade image: drop some pixels
+        mask = np.random.choice([0,1],size=img.shape).astype(np.float32)
+        img = img*mask
+
+        # finally replace background using real data
+        img = bandpass_mixup(img)
 
         prefix = dirname+'/steelpan_'+str(framenum).zfill(7)
         cv2.imwrite(prefix+'.png',img)
