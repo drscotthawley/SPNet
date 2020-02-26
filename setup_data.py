@@ -8,7 +8,7 @@
 
 # Assumes you have ALREADY run parse_zooniverse_csv.py and that all real data is now
 # in <real_data_dir>
-real_data_dir = "/home/shawley/datasets/parsed_zooniverze_steelpan/"
+real_data_dir = "/home/shawley/datasets/cleaned_zooniverse_steelpan/"
 
 import glob
 import os
@@ -39,7 +39,7 @@ def distribute_dataset():
 
     # copy things into Test, Train and Vals directories
     make_sure_path_exists('Train')
-    #make_sure_path_exists('Test')
+    #make_sure_path_exists('Test')  # skip Test
     make_sure_path_exists('Val')
     for i in range(len(indices)):
         frac = i * 1.0 / numfiles
