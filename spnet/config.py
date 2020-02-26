@@ -24,4 +24,6 @@ ind_angle2 = 5          # sin(2*theta)
 ind_noobj = 6
 ind_rings = 7
 
-loss_type = 'hybrid' #  'same'=mse for all, 'hybrid'(or anything !'same')=CE for noobj & mse for all others
+loss_type = 'same' #  'same'=mse for all, 'hybrid'(or anything !'same')=CE for noobj & mse for all others
+model_type = 'monolithic'  # anything other than 'simple'
+basemodel = 'xception'  #
