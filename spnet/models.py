@@ -16,7 +16,9 @@ from keras.applications.nasnet import NASNetLarge, NASNetMobile
 from keras.applications.densenet import DenseNet121
 
 from keras.applications.inception_resnet_v2 import InceptionResNetV2
-from keras.layers import DepthwiseConv2D
+#from keras.layers import DepthwiseConv2D    # newer keras
+from keras.applications.mobilenet import MobileNet, DepthwiseConv2D   # older keras
+
 from keras.applications.inception_v3 import preprocess_input
 from keras.layers.advanced_activations import ELU, PReLU, LeakyReLU
 from keras.callbacks import ModelCheckpoint, Callback, EarlyStopping, TensorBoard
@@ -30,10 +32,41 @@ from spnet import multi_gpu, utils
 import spnet.config as cf
 from functools import partial
 
+from keras.utils.generic_utils import get_custom_objects
+
+
+
+class Mish(Activation):  # Mish is intereting but I get OOM errors.
+    '''
+    Mish Activation Function.
+    .. math::
+        mish(x) = x * tanh(softplus(x)) = x * tanh(ln(1 + e^{x}))
+    Shape:
+        - Input: Arbitrary. Use the keyword argument `input_shape`
+        (tuple of integers, does not include the samples axis)
+        when using this layer as the first layer in a model.
+        - Output: Same shape as the input.
+    Examples:
+        >>> X = Activation('Mish', name="conv1_act")(X_input)
+    '''
+    def __init__(self, activation, **kwargs):
+        super(Mish, self).__init__(activation, **kwargs)
+        self.__name__ = 'Mish'
+def mish(x, fast=False):
+    if fast:              # faster but requires extra storage
+        y = K.exp(-x)
+        z = 1 + 2 * y
+        return x * z / (z + 2* y * y)
+    #return x * tf.math.tanh(tf.math.softplus(x))
+    return x * K.tanh(K.softplus(x))
+
+get_custom_objects().update({'Mish': Mish(mish)})
+
+
+
 
 def space_to_depth_x2(x):
     return tf.space_to_depth(x, block_size=2)
-
 
 def FullYOLO(X,Y): # after https://github.com/experiencor/basic-yolo-keras/blob/master/backend.py
                 # see Table 6 in YOLO9000 paper, https://arxiv.org/pdf/1612.08242.pdf
@@ -231,7 +264,7 @@ class SelectiveSigmoid(Layer):
 
 
 
-def create_model_functional(X0shape, Y0size=576, freeze_fac=0.75, model_type='monolithic'):
+def create_model_functional(X, Y0size=576, freeze_fac=0.75):
     """
     accepts a 'large' grayscale image (or set of images), runs a convnet & pooling to shrink it in a learnable way
     #  this produces a smaller set of 3 'color' images for different features.
@@ -240,33 +273,65 @@ def create_model_functional(X0shape, Y0size=576, freeze_fac=0.75, model_type='mo
       "InterleaveColumns" layer to reorder the columns and produce output compatible with the previous model.
     """
     print("Using functional API model")
-    # 'shrinking' front end to rescale image by factor of 3, generating 3 learned filters for "colors"
+
+    # First part of the model is to take the large grayscale image, shrink it, and
+    # add 3 conv operations to produce something akin to color channels to feed into the
+    # 'standard' models below:
     kernel_size = (3, 3)  # convolution kernel size
     pool_size = (2, 2)  # size of pooling area for max pooling
-    nfilters = 3
-    print("X0shape = ",X0shape)
-    inputs = Input(shape=X0shape)
+    nfilters = 3        # adding 3 'color' channels
+    print("X[0].shape = ",X[0].shape)
+    inputs = Input(shape=X[0].shape)
     x = inputs
+    x = Conv2D(nfilters, kernel_size, strides=(1,1), padding='same', use_bias=False)(x) # give us 3 colors
+
+    x = AveragePooling2D(pool_size=pool_size)(x)                                       # shrink image
+
+    # ResNet block:
+    x = BatchNormalization()(x)
+    x = LeakyReLU(alpha=0.1)(x)
+    #x  = Activation('Mish')(x)
+
     x = Conv2D(nfilters, kernel_size, strides=(1,1), padding='same', use_bias=False)(x)
     x = BatchNormalization()(x)
     x = LeakyReLU(alpha=0.1)(x)
-    x = MaxPooling2D(pool_size=pool_size)(x)
-    x =  Add()([x,AveragePooling2D(pool_size=pool_size)(inputs)])  # residual skip connection on shrunk image
+    #x  = Activation('Mish')(x)
+
+    x = Conv2D(nfilters, kernel_size, strides=(1,1), padding='same', use_bias=False)(x)
+    x = BatchNormalization()(x)
+    x =  Add()([x, AveragePooling2D(pool_size=pool_size)(inputs)])  # residual skip connection on shrunk input
+    #x =  Add()([x, id])  # residual skip connection on shrunk input
+
     #x = Dropout(0.25)(x)
+    # Finished with first part of the model
     print("After initial convolutions & pooling, x.shape = ",x.shape)
 
-    # 'PreFab' CNN middle section
+    # 'PreFab'/standard CNN middle section
     weights = 'imagenet'  # None or 'imagenet'.  Note: If you ever get "You are trying to load a model with __layers___", you need to add by_name=True in the load_model call for your Prefab CNN
-    #with CustomObjectScope({'relu6': keras.layers.ReLU(6.),'DepthwiseConv2D': keras.layers.DepthwiseConv2D}):
-    #    base_model = MobileNet(input_shape=x.shape[1:4], weights=weights, include_top=False, input_tensor=x, dropout=0.6)       # Works well, VERY FAST! Needs img size 224x224
-    #base_model = NASNetMobile(input_shape=x[0].shape, weights=weights, include_top=False, input_tensor=x)
-    base_model = Xception(weights=weights, include_top=False, input_tensor=x)
-    #base_model = DenseNet121(weights=weights, include_top=False, input_tensor=x)
-    #base_model = NASNetLarge(weights=weights, include_top=False, input_tensor=x)
+    if cf.basemodel == 'mobilenet':
+        # with CustomObjectScope({'relu6': ReLU(6.),'DepthwiseConv2D': DepthwiseConv2D}):  # newer keras
+        with CustomObjectScope({'relu6': keras.applications.mobilenet.relu6,'DepthwiseConv2D': keras.applications.mobilenet.DepthwiseConv2D, 'custom_loss':custom_loss, 'tf':tf}):   # older keras
+            input_shape = x.shape[1:4]
+            print("input_shape = ",input_shape)
+            print("input_shape[-1] = ",input_shape[-1])
+            base_model = MobileNet(input_shape=input_shape, weights=None, include_top=False, input_tensor=x, dropout=0.6)       # Works well, VERY FAST! Needs img size 224x224
+    elif cf.basemodel == 'nasnetmobile':
+        base_model = NASNetMobile(input_shape=x[0].shape, weights=weights, include_top=False, input_tensor=x)
+    elif cf.basemodel == 'inceptionv3':
+        base_model = InceptionV3(weights=weights, include_top=False, input_tensor=x)       # Works well, fast
+    elif cf.basemodel == 'inceptionresnetv2':
+        base_model = InceptionResNetV2(weights=weights, include_top=False, input_tensor=x)  # works ok, big, slow.  doesn't play well with "unfreeze" in multi-gpu setting
+    elif cf.basemodel == 'densenet121':
+        base_model = DenseNet121(weights=weights, include_top=False, input_tensor=x)
+    #base_model = NASNetLarge(weights=weights, include_top=False, input_tensor=x)  # NASNetLarge is too big to fit in VRAM.
+    else:
+        # default is Xception: works fine, comparable high accuracy to InceptionResNetV2 but half the size
+        base_model = Xception(weights=weights, include_top=False, input_tensor=x)
 
-    # Finally we stack on a 'flat' output
+
+    # Finally we stack on top, a 'flat' output
     x = Flatten(input_shape=base_model.output_shape[1:])(base_model.output)
-    if model_type == 'compound':
+    if cf.model_type == 'compound':   # note, this is rarely used, instead we use either SelectiveSigmoid or just alter the loss function
         if (Y0size % cf.vars_per_pred != 0):
             raise ValueError("Y0size (="+str(Y0size)+") must be a multiple of cf.vars_per_pred (="+str(cf.vars_per_pred)+")")
         n_preds = int(Y0size / cf.vars_per_pred)
@@ -284,7 +349,7 @@ def create_model_functional(X0shape, Y0size=576, freeze_fac=0.75, model_type='mo
     model = Model(inputs=inputs, outputs=top)
 
 
-    # set the first N layers (up to the last conv block)
+    # set the first N layers of the base model (e.g., p to the last conv block)
     # to non-trainable (weights will not be updated)
     # for fine-tuning, "freeze" most of the pre-trained model, and then unfreeze it later
     num_layers = len(base_model.layers)
@@ -298,40 +363,27 @@ def create_model_functional(X0shape, Y0size=576, freeze_fac=0.75, model_type='mo
 
 
 
-def create_model(X, Y0size=576, freeze_fac=0.75, model_type='monolithic'):
+def create_model_simple(X, Y0size=576, freeze_fac=0.75):
     """
     creates a model from scratch.  Y0size is the size of the (flattened) output grid of predictors, e.g. 6x6x2x8=576
     """
-    if model_type != 'simple':
-        return create_model_functional(X[0].shape, Y0size=Y0size, freeze_fac=freeze_fac, model_type=model_type)
 
-    # Pick a pre-trained model, but leave the "top" off.
-
-
+    # Simple model (rarely used anymore)
+    #   Pick a pre-trained model, but leave the "top" off.  Note that for pretrained weights, these models generally
+    #   require 3 color channels, and a small input size (e.g. 224x224)
     input_tensor = Input(shape=X[0].shape)
     weights = 'imagenet'    # None or 'imagenet'    If you want to use imagenet, X[0].shape[2] must = 3
-    #base_model = VGG16(weights=weights, include_top=False, input_tensor=input_tensor)              # same for all inputs
-    #base_model = Xception(weights=weights, include_top=False, input_tensor=input_tensor)   # yield same #s for all inputs
-    #base_model = InceptionV3(weights=weights, include_top=False, input_tensor=input_tensor)       # Works well, fast
-    #base_model = InceptionResNetV2(weights=weights, include_top=False, input_tensor=input_tensor)  # works ok, big, slow.  doesn't play well with "unfreeze" in multi-gpu setting
-    #with CustomObjectScope({'relu6': keras.layers.ReLU(6.),'DepthwiseConv2D': keras.layers.DepthwiseConv2D}):
-    #    base_model = MobileNet(input_shape=X[0].shape, weights=weights, include_top=False, input_tensor=input_tensor, dropout=0.6)       # Works well, VERY FAST! Needs img size 224x224
     base_model = NASNetMobile(input_shape=X[0].shape, weights=weights, include_top=False, input_tensor=input_tensor)
-    #base_model = DenseNet121(input_shape=X[0].shape, weights=weights, include_top=False, input_tensor=input_tensor)
-    #base_model = NASNetLarge(input_shape=X[0].shape, weights=weights, include_top=False, input_tensor=input_tensor)
-
     top_model = Sequential()        # top_model gets tacked on to pretrained model
     top_model.add(Flatten(input_shape=base_model.output_shape[1:]))   # This is the 'grid of predictors'.  It's actually a flat layer.
     top_model.add(Dense(Y0size, name='FinalOutput'))      # Final output layer
-
     if (cf.loss_type != 'same'):
         print("**Adding SelectiveSigmoid**")
         top_model.add(SelectiveSigmoid(name='ReallyFinalOutput')) # make the existence variables sigmoids
-
-    #top_model.load_weights('bootlneck_fc_model.h5')
     model = Model(inputs= base_model.input, outputs= top_model(base_model.output))
 
-    # set the first N layers (up to the last conv block)
+
+    # Freezing: set the first N layers (up to the last conv block)
     # to non-trainable (weights will not be updated)
     # for fine-tuning, "freeze" most of the pre-trained model, and then unfreeze it later
     num_layers = len(base_model.layers)
@@ -344,21 +396,24 @@ def create_model(X, Y0size=576, freeze_fac=0.75, model_type='monolithic'):
     return model
 
 
-def setup_model(X, Y0size=576, nb_layers=4, try_checkpoint=True, no_cp_fatal=False, \
-    weights_file='weights.hdf5', freeze_fac=0.75, parallel=True, model_type='simple'):
+def setup_model(X, Y0size=576, try_checkpoint=True, no_cp_fatal=False, \
+    weights_file='weights.hdf5', freeze_fac=0.75, parallel=True):
     """
     this is the main routine for setting up the NN model, either 'from scratch' or loading from checkpoint
     """
 
     print("Initializing blank model")
-    model = create_model(X, Y0size=Y0size, freeze_fac=freeze_fac, model_type=model_type)
+    if cf.model_type == 'simple':
+        model = create_model_simple(X, Y0size=Y0size, freeze_fac=freeze_fac)
+    else:
+        model = create_model_functional(X, Y0size=Y0size, freeze_fac=freeze_fac)
 
     # Initialize weights using checkpoint if it exists.
     if (try_checkpoint):
         if ( isfile(weights_file) ):
             print ('Weights file detected. Loading from',weights_file)
-            #with CustomObjectScope({'relu6': keras.applications.mobilenet.relu6,'DepthwiseConv2D': keras.applications.mobilenet.DepthwiseConv2D, 'custom_loss':custom_loss, 'tf':tf}):
-            with CustomObjectScope({'relu6': keras.layers.ReLU(6.),'DepthwiseConv2D': keras.layers.DepthwiseConv2D, 'custom_loss':custom_loss, 'tf':tf}):
+            with CustomObjectScope({'relu6': keras.applications.mobilenet.relu6,'DepthwiseConv2D': keras.applications.mobilenet.DepthwiseConv2D, 'custom_loss':custom_loss, 'tf':tf}):  # old keras
+            #with CustomObjectScope({'relu6': keras.layers.ReLU(6.),'DepthwiseConv2D': keras.layers.DepthwiseConv2D, 'custom_loss':custom_loss, 'tf':tf}): # new keras
                 model.load_weights(weights_file)    # Note: assume serial part was saved, not parallel model
         else:
             if (no_cp_fatal):
@@ -368,7 +423,6 @@ def setup_model(X, Y0size=576, nb_layers=4, try_checkpoint=True, no_cp_fatal=Fal
 
     opt = Adam(lr=0.00001)
     loss = custom_loss # custom_loss or 'mse'
-    #model.compile(loss=loss, optimizer=opt)
 
     serial_model = model
     if parallel and (len(multi_gpu.get_available_gpus())>1):
@@ -382,11 +436,15 @@ def setup_model(X, Y0size=576, nb_layers=4, try_checkpoint=True, no_cp_fatal=Fal
     return model, serial_model
 
 
-def unfreeze_model(model, X, Y, freeze_fac=0.0, parallel=True):
+def unfreeze_model(model, X, Y, parallel=True):
     print("Unfreezing Model: make a new identical model, then copy the layer weights.")
-    new_model = create_model(X, Y[0].size, freeze_fac=freeze_fac)  # identical spec as original model, just not setting 'trainable=False'
 
-    new_model.set_weights( multi_gpu.make_serial( model, parallel=parallel).get_weights() )     # copy layer weights
+    if cf.model_type == 'simple':
+        new_model = create_model_simple(X, Y[0].size, freeze_fac=0)  # identical spec as original model, just not setting 'trainable=False'
+    else:
+        new_model = create_model_functional(X, Y[0].size, freeze_fac=0)  # identical spec as original model, just not setting 'trainable=False'
+
+    new_model.set_weights( multi_gpu.get_serial_part( model, parallel=parallel).get_weights() )     # copy layer weights
 
     if parallel:
         new_model = multi_gpu.make_parallel(new_model)
