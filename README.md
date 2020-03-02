@@ -65,5 +65,13 @@ The following assumes SPNet/ is in your home directory, and you're on a Unix-lik
 *and* do augmentation on (only) the Train/ data.  (If later you want to re-augment, you can run `augment_data.py` alone.)   Note:The augmentation will also include synthetic data.
 u. Now you should be ready to train: ` ~/SPNet/train_spnet.py `
 
+## Making a movie
+`./predict_network.py` will output a list of `.png` files in `logs/Predicting`.  To turn them into an mp4 movie named `out.mp4`, cd in to the `logs/Predicting` directory and then run
+
+```bash
+ffmpeg -r 1/5 -i steelpan_pred_%05d.png -c:v libx264 -vf fps=25 -pix_fmt yuv420p out.mp4
+```
+
+
 --
 Scott H. Hawley
