@@ -51,7 +51,8 @@ num_frames = 0
 num_tasks = 0
 frames_per_task= 0
 
-train_only_global = True           # Only gen fake images for the training set. False= make Test & Val images too
+gen_val_global = False           # Gen Val dataset
+gen_test_global = False          # Gen Test dataset
 pad = ''
 outpath = '.'
 
@@ -274,14 +275,21 @@ def gen_images_wrapper(task):
 
 
 def gen_images(task):
-    global pad, outpath
-    if (train_only_global):
+    """
+    The main routine!
+    """
+    global pad, outpath, gen_val_global, gen_test_global, num_tasks
+
+    if not (gen_val_global or gen_test_global):
         dirname = outpath+'/Train/'
     else:
         # have different tasks generate different parts of the dataset
-        val = task*1.0/num_tasks
-        if (val < 0.8):
+        # Will either do 80-20 Train-Val or 80-10-10 Train-Val-Test
+        split_location = task*1.0/num_tasks
+        if (split_location < 0.8):
             dirname = outpath+'/Train/'
+        elif (gen_test_global) and (split_location >= 0.9):
+            dirname = outpath+'/Test/'
         else:
             dirname = outpath+'/Val/'
 
@@ -335,22 +343,24 @@ def gen_images(task):
     print("\r",pad,":Finished   ",sep="",end="\r")
 
 
-def gen_fake_espi(name=".", numframes=1000, train_only=True):
-    global frame_start, num_frames, num_tasks, frames_per_task, train_only_global, outpath
+def gen_fake_espi(name=".", numframes=1000):
+    global frame_start, num_frames, num_tasks, frames_per_task, outpath
+    global gen_val_global, gen_test_global
     print("gen_fake_data: Generating synthetic data")
     num_frames = numframes
     frame_start = 0
     num_tasks = 10    # we've got 12 processors. but 10 is 'cleaner'
     frames_per_task= int(round(num_frames / num_tasks))
-    train_only_global = train_only
 
     start_time = time.process_time()
 
     outpath = name
     make_sure_path_exists(outpath)
     make_sure_path_exists(outpath+'/Train')
-    make_sure_path_exists(outpath+'/Val')
-    #make_sure_path_exists(outpath+'/Test')
+    if gen_val_global:
+        make_sure_path_exists(outpath+'/Val')
+    if gen_test_global:
+        make_sure_path_exists(outpath+'/Test')
 
 
     num_procs = mp.cpu_count()
@@ -379,10 +389,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="trains network on training dataset",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('name', help='Output path of the dataset directory (subdirs Test and Val will be created)')
-    parser.add_argument('-f', '--frames', type=int, help='Number of images to generate', default=1000)
-    parser.add_argument('-a', '--all',
-        help='generate all data , default is Train only', default=False, action='store_true')
+    parser.add_argument('-f', '--frames', type=int, default=1000, help='Number of images to generate')
+    parser.add_argument('-v', '--val', default=False, action='store_true',
+        help='generate Val dataset in addition to Train.  default is Train only')
+    parser.add_argument('-t', '--test', default=False, action='store_true',
+        help='generate Test and Val dataset. default is Train only ')
+    parser.add_argument('-a', '--all', default=False, action='store_true',
+        help='same as -t or --test')  # added for clarity
+
     args = parser.parse_args()
 
-    gen_fake_espi(name=args.name, numframes=args.frames, train_only=(not args.all))
+    gen_val_global = (args.val or args.test or args.all)
+    gen_test_global = (args.test or args.all)
+
+    gen_fake_espi(name=args.name, numframes=args.frames)
 #cv2.destroyAllWindows()
