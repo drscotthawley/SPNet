@@ -237,6 +237,97 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             #print("                                                                  my_val_loss:",my_val_loss)
 
 
+# Augmentations
+
+@jit(nopython=True)
+def salt_n_pepa(img, salt_vs_pepper = 0.2, amount=0.004):
+    """
+    Adds (even more) black & white dots to image
+    modified from https://medium.com/ymedialabs-innovation/data-augmentation-techniques-in-cnn-using-tensorflow-371ae43d5be9
+    Note: operates IN PLACE on one 'image'.  img is really a numpy array
+    """
+    if np.random.randint(2) == 0:
+        return              # abort and leave image unchanged
+
+    salt_color, pepper_color = np.max(img), np.min(img)
+    #print("Salt & Pepa's here, and we're in effect!")
+    num_salt = np.ceil(amount * img.size * salt_vs_pepper)
+    num_pepper = np.ceil(amount * img.size * (1.0 - salt_vs_pepper))
+
+    # Add Salt noise
+    coords = [np.random.randint(0, i - 1, int(num_salt)) for i in img.shape[0:2]]
+    for i in coords[0]:   # trust Numba to make these loops fast
+        for j in coords[1]:
+            img[i, j, :] = salt_color
+
+    # Add Pepper noise
+    coords = [np.random.randint(0, i - 1, int(num_pepper)) for i in img.shape[0:2]]
+    for i in coords[0]:   # trust Numba to make these loops fast
+        for j in coords[1]:
+            img[i, j, :] = pepper_color
+
+
+@jit(nopython=True)
+def cutout(img, max_regions=6, minsize=11, maxsize=75):
+    """
+    "Improved Regularization of Convolutional Neural Networks with Cutout", https://arxiv.org/abs/1708.04552
+    All we do is chop out rectangular regions from the image, i.e. "masking out contiguous sections of the input"
+    Unlike the original cutout paper, we don't cut out anything too huge, and we use random (greyscale) colors
+    Note: operates IN PLACE on one 'image'.  image is really a numpy array
+    """
+    num_regions = np.random.randint(0, high=max_regions+1)
+    if (0 == num_regions):
+        return              # abort
+    colormin, colormax = np.min(img), np.max(img)
+    for region in range(num_regions):
+        pt1 = ( np.random.randint(0,img.shape[0]-minsize), np.random.randint(0, img.shape[1]-minsize))  # upper left corner of cutout rectangle
+        rwidth, rheight = np.random.randint(minsize, maxsize), np.random.randint(minsize, maxsize)  # width & height of cutout rectangle
+        pt2 = ( min(pt1[0] + rwidth, img.shape[0]-1) , min(pt1[1] + rheight, img.shape[1]-1)  )   # keep rectangle bounded in image
+        const_value = np.random.uniform( colormin, colormax )
+        img[ pt1[0]:pt2[0], pt1[1]:pt2[1], : ] = const_value
+
+@jit(nopython=True)
+def brightness_contrast(img):
+    # contrast
+    if 0 != np.random.randint(3):  # 2/3 of the time we rescale
+        imgmin, imgmax, imgmean = np.min(img), np.max(img), np.mean(img)
+        scale = np.float32(np.random.rand()) + np.float32(0.5)     # 0.5 to 1.5
+        img = (img - imgmean)*scale + imgmean
+
+    # brightness
+    if 0 != np.random.randint(3):
+        imgmin, imgmax, imgmean = np.min(img), np.max(img), np.mean(img)
+        add_range = [(imgmean - imgmin)/2 - imgmean, (imgmax - imgmean)/2 - imgmean ]
+        add_amt = add_range[0] + np.random.rand()*(add_range[1]-add_range[0])
+        img += add_amt
+        # might want to add some kind of a squash fucntion to keep it in bounds; as it is, they're float32s!
+
+    return img
+
+
+@jit(nopython=True, parallel=True)
+def my_aug(X_orig, Y_orig, X, Y, num_aug):   # my wrapper for augmentation, for Numba's sake
+    """
+    Numba JIT with parallel makes this run reasonably fast :-) 
+    """
+    for j in range(num_aug): # loop over images.
+        i = np.random.randint(low=0, high=X_orig.shape[0])  # pick an random image
+        if ((j % 200 == 0) or (j == num_aug-1)):
+            print("   Augmenting on the fly:",j+1,"/",num_aug,"    \033[F") # last char skips up a line
+        img = X_orig[i,:,:,:].copy()  # grab individual image (assume other operations occur in-place)
+        metadata = Y_orig[i,:].copy()
+
+        # Now do stuff to the image and metadata...
+        cutout(img)
+        salt_n_pepa(img)
+        img = brightness_contrast(img)
+        # flip vertically ('x axis' in cv2) or not at all
+        #img, metadata = self.flip_image(img, metadata, np.random.choice([-2,0]), self.orig_img_shape )
+
+        X[i,:,:,:] = img   # overwrite the relevant part of current dataset (this propagates 'out' to model.fit b/c pointers)
+        Y[i,:] = metadata
+    print("")
+
 
 # This is called during training via Keras callback
 class AugmentOnTheFly(Callback):
@@ -249,6 +340,8 @@ class AugmentOnTheFly(Callback):
 
     Examples of OK operations: cutout, noise.
     Not ok:  Anything that would depend on the scaling or cropping:  e.g. translation, scaling, shear
+             For these, you should use augment_data.py to pre-generate such augmentations (But
+             doing them on the fly would be quite tricky)
 
     Inputs: X, the inputs, should be the training dataset
             Y, the target metadata
@@ -262,48 +355,6 @@ class AugmentOnTheFly(Callback):
         self.Y_orig = Y.copy()
         self.aug_every = aug_every
         self.orig_img_shape = orig_img_shape
-
-    def salt_n_pepa(self, img, salt_vs_pepper = 0.2, amount=0.004):
-        """
-        Adds (even more) black & white dots to image
-        modified from https://medium.com/ymedialabs-innovation/data-augmentation-techniques-in-cnn-using-tensorflow-371ae43d5be9
-        Note: operates IN PLACE on one 'image'.  img is really a numpy array
-        """
-        push_it = np.random.choice(['good','not good'])   # randomly do it or don't do it
-        if push_it != 'good':
-            return              # abort and leave image unchanged
-
-        salt_color, pepper_color = np.max(img), np.min(img)
-        #print("Salt & Pepa's here, and we're in effect!")
-        num_salt = np.ceil(amount * img.size * salt_vs_pepper)
-        num_pepper = np.ceil(amount * img.size * (1.0 - salt_vs_pepper))
-
-        # Add Salt noise
-        coords = [np.random.randint(0, i - 1, int(num_salt)) for i in img.shape[0:2]]
-        img[coords[0], coords[1], :] = salt_color
-
-        # Add Pepper noise
-        coords = [np.random.randint(0, i - 1, int(num_pepper)) for i in img.shape[0:2]]
-        img[coords[0], coords[1], :] = pepper_color
-
-
-    def cutout(self, img, max_regions=6, minsize=11, maxsize=75):
-        """
-        "Improved Regularization of Convolutional Neural Networks with Cutout", https://arxiv.org/abs/1708.04552
-        All we do is chop out rectangular regions from the image, i.e. "masking out contiguous sections of the input"
-        Unlike the original cutout paper, we don't cut out anything too huge, and we use random (greyscale) colors
-        Note: operates IN PLACE on one 'image'.  image is really a numpy array
-        """
-        num_regions = np.random.randint(0, high=max_regions+1)
-        if (0 == num_regions):
-            return              # abort
-        colormin, colormax = np.min(img), np.max(img)
-        for region in range(num_regions):
-            pt1 = ( np.random.randint(0,img.shape[0]-minsize), np.random.randint(0, img.shape[1]-minsize))  # upper left corner of cutout rectangle
-            rwidth, rheight = np.random.randint(minsize, maxsize), np.random.randint(minsize, maxsize)  # width & height of cutout rectangle
-            pt2 = ( min(pt1[0] + rwidth, img.shape[0]-1) , min(pt1[1] + rheight, img.shape[1]-1)  )   # keep rectangle bounded in image
-            const_value = np.random.uniform( colormin, colormax )
-            img[ pt1[0]:pt2[0], pt1[1]:pt2[1], : ] = const_value
 
     '''def flip_image(self, img, metadata, flip_param, orig_img_shape):
         """  TODO/NOTE:  This should not be used. Is broken.
@@ -339,26 +390,12 @@ class AugmentOnTheFly(Callback):
         return img.copy(), metadata
     '''
 
-    @jit()
     def on_epoch_begin(self, epoch, logs=None):
         # Do the augmentation at the beginning of the epoch
-        # TODO: parallelize? currently this runs in serial & hence is somewhat slow.  Added Numba jit
-        if (0 == epoch % self.aug_every):
-            for i in range(self.X_orig.shape[0]): # loop over images. TODO: parallelize this
-                if ((i % 200 == 0) or (i == self.X_orig.shape[0]-1)):
-                    print("   Augmenting on the fly: ",i+1,"/",self.X_orig.shape[0],"\r",sep="",end="")
-                img = self.X_orig[i,:,:,:].copy()  # grab individual image (assume other operations occur in-place)
-                metadata = self.Y_orig[i,:].copy()
-
-                # Now do stuff to the image and metadata...
-                self.cutout(img)
-                self.salt_n_pepa(img)
-                # flip vertically ('x axis' in cv2) or not at all
-                #img, metadata = self.flip_image(img, metadata, np.random.choice([-2,0]), self.orig_img_shape )
-
-                self.X[i,:,:,:] = img   # overwrite the relevant part of current dataset (this propagates 'out' to model.fit b/c pointers)
-                self.Y[i,:] = metadata
-            print("")
+        if (epoch % self.aug_every == 0):
+            aug_frac = 0.5
+            num_aug = int(self.X_orig.shape[0]*aug_frac)
+            my_aug(self.X_orig, self.Y_orig, self.X, self.Y, num_aug)
 
     def on_epoch_end(self, epoch, logs=None):
         pass   # do nothing
@@ -425,5 +462,5 @@ class OneCycleScheduler(Callback):
         logs = logs or {}
         lr = K.get_value(self.model.optimizer.lr)
         logs['lr'] =lr
-        if self.verbose > 1:
+        if self.verbose > 0:
             print('\nLearning rate =',lr)
