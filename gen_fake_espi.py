@@ -53,6 +53,7 @@ frames_per_task= 0
 
 train_only_global = True           # Only gen fake images for the training set. False= make Test & Val images too
 pad = ''
+outpath = '.'
 
 
 def bandpass_mixup(img_fake, path_real='/home/shawley/datasets/parsed_zooniverze_steelpan/'):
@@ -273,16 +274,16 @@ def gen_images_wrapper(task):
 
 
 def gen_images(task):
-    global pad
+    global pad, outpath
     if (train_only_global):
-        dirname = 'Train/'
+        dirname = outpath+'/Train/'
     else:
         # have different tasks generate different parts of the dataset
         val = task*1.0/num_tasks
         if (val < 0.8):
-            dirname = 'Train'
+            dirname = outpath+'/Train/'
         else:
-            dirname = 'Val'
+            dirname = outpath+'/Val/'
 
     # used for spacing out task output
     pad_space = max(14, int(round( get_terminal_size().columns / (num_tasks+0.5))))
@@ -296,7 +297,7 @@ def gen_images(task):
     for iframe in range(frames_per_task):
         framenum = frame_start + task * frames_per_task + iframe
         if (0 == framenum % 1):
-            print(pad,":",framenum,"/",task_maxframe,sep="",end="\r")
+            print(f"{pad}:{framenum}/{task_maxframe}  ",end="\r")
         np_dims = (imHeight, imWidth, 1)                       # for numpy, dimensions are reversed
 
         img = 128*np.ones(np_dims, np.uint8)
@@ -334,8 +335,8 @@ def gen_images(task):
     print("\r",pad,":Finished   ",sep="",end="\r")
 
 
-def gen_fake_espi(numframes=1000, train_only=True):
-    global frame_start, num_frames, num_tasks, frames_per_task, train_only_global
+def gen_fake_espi(name=".", numframes=1000, train_only=True):
+    global frame_start, num_frames, num_tasks, frames_per_task, train_only_global, outpath
     print("gen_fake_data: Generating synthetic data")
     num_frames = numframes
     frame_start = 0
@@ -343,11 +344,13 @@ def gen_fake_espi(numframes=1000, train_only=True):
     frames_per_task= int(round(num_frames / num_tasks))
     train_only_global = train_only
 
-    start_time = time.clock()
+    start_time = time.process_time()
 
-    make_sure_path_exists('Train')
-    make_sure_path_exists('Val')
-    #make_sure_path_exists('Test')
+    outpath = name
+    make_sure_path_exists(outpath)
+    make_sure_path_exists(outpath+'/Train')
+    make_sure_path_exists(outpath+'/Val')
+    #make_sure_path_exists(outpath+'/Test')
 
 
     num_procs = mp.cpu_count()
@@ -364,7 +367,7 @@ def gen_fake_espi(numframes=1000, train_only=True):
     pool.join()
     print("Back from pool.join")
 
-    print(time.clock() - start_time, "seconds")
+    print(time.process_time() - start_time, "seconds")
 
 
 # --- Main code
@@ -373,11 +376,13 @@ if __name__ == "__main__":
     random.seed(1)
     np.random.seed(1)
     import argparse
-    parser = argparse.ArgumentParser(description="trains network on training dataset")
-    parser.add_argument('-n', '--numframes', type=int, help='Number of images to generate', default=500)
+    parser = argparse.ArgumentParser(description="trains network on training dataset",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('name', help='Output path of the dataset directory (subdirs Test and Val will be created)')
+    parser.add_argument('-f', '--frames', type=int, help='Number of images to generate', default=1000)
     parser.add_argument('-a', '--all',
         help='generate all data , default is Train only', default=False, action='store_true')
     args = parser.parse_args()
 
-    gen_fake_espi(numframes=args.numframes, train_only=(not args.all))
+    gen_fake_espi(name=args.name, numframes=args.frames, train_only=(not args.all))
 #cv2.destroyAllWindows()
