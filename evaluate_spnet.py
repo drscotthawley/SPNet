@@ -1,7 +1,17 @@
 #! /usr/bin/env python3
 
-# Pulls up some image files and predicts ellipses & ring-counts for them.
+# Additional scoring routines for trained models
+# TODO: Note this whole thing is almost the same code as predict_spnet.py
 
+# disable FutureWarnings from numpy re. tensorflow
+import warnings
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore",category=FutureWarning)
+    import tensorflow as tf
+    from tensorflow import keras
+    from tensorflow.keras.preprocessing.text import Tokenizer
+
+# Main imports
 import numpy as np
 import cv2
 import random

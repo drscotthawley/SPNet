@@ -1,16 +1,11 @@
 #! /usr/bin/env python3
 """
-Some diagnostic utilities such as computing the Intersection-Over-Union Score (and mAP?)
-
-mAP is typical for classification-based object detectors.
+Some diagnostic utilities such as computing the Intersection-Over-Union Score and mAP
 """
 import numpy as np
 import cv2
-import sys
-sys.path.append('/home/shawley/SPNet')
-sys.path.append('..')
-from spnet import utils
 import spnet.config as cf
+from spnet import utils
 
 
 
@@ -55,8 +50,7 @@ def draw_filled_ellipse(img, center, axes, angle):
 
 def create_ellipse_image(args, nx=512, ny=384):
     '''
-    Inputs: args is a tuple where
-        args = (cx, cy, a, b, angle, noobj, rings)
+    args = (cx, cy, a, b, angle, noobj, rings)
     '''
     img = np.zeros( (ny, nx, 1), np.uint8)
     img = draw_filled_ellipse(img, args[0:2], args[2:4], args[4])
@@ -65,11 +59,8 @@ def create_ellipse_image(args, nx=512, ny=384):
 
 def compute_iou(args_a, args_b, display=False):
     """
-    Inputs:  args_a and args_b are the set of arguments to create_ellipse_image(), see previous routine
-
-    Notes: this operates on one pair of ellipses (a & b) at a time
+    Note: this operates on one pair of ellipses at a time
     If one of the ellipses does not exist, this will return zero (intersection=0, union!=0)
-    Any parts of either ellipse that extend off the edge of the image are not included.
     """
     img_a = create_ellipse_image(args_a)
     img_b = create_ellipse_image(args_b)
@@ -100,10 +91,7 @@ def compute_iou(args_a, args_b, display=False):
 
 
 if __name__ == '__main__':
-    # Here's a simple run of the test
-    
-    sys.path.append('../tests/')
-    import test_diagnostics
+    from tests import test_diagnostics
     # current setup: testing a couple pre-defined ellipses
     iou = test_diagnostics.test_compute_iou()
     print("IOU score = ",iou)

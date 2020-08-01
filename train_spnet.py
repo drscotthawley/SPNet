@@ -1,5 +1,15 @@
 #! /usr/bin/env python3
 from __future__ import print_function
+
+# disable FutureWarnings from numpy re. tensorflow
+import warnings
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore",category=FutureWarning)
+    import tensorflow as tf
+    from tensorflow import keras
+    from tensorflow.keras.preprocessing.text import Tokenizer
+
+# other imports
 import numpy as np
 import keras
 import tensorflow as tf
@@ -12,10 +22,11 @@ import PIL
 from spnet import models, utils, multi_gpu, diagnostics, callbacks
 import random
 import spnet.config as cf
+from predict_spnet import predict_network
 
 
 def train_network(weights_file="weights.hdf5", datapath=".", fraction=1.0, batch_size=32, \
-        epochs=30, pred_grid=[6,6,2], noaugment=False):
+        epochs=30, pred_grid=[6,6,2], noaugment=False, log_dir="."):
     # for deterministic results (TODO: remove later for more general testing)
     np.random.seed(1)
     from tensorflow import set_random_seed
@@ -50,17 +61,15 @@ def train_network(weights_file="weights.hdf5", datapath=".", fraction=1.0, batch
         freeze_fac=freeze_fac)
 
     # Set up callbacks
-    now = time.strftime("%c").replace('  ','_').replace(' ','_')   # date, with no double spaces or spaces
-    log_dir='./logs/'+now
     myprogress = callbacks.MyProgressCallback(X_val=X_val, Y_val=Y_val, val_file_list=val_file_list, log_dir=log_dir, pred_shape=pred_shape)
-    checkpointer = callbacks.ParallelCheckpointCallback(serial_model, filepath=weights_file, save_every=10)
-    lr_sched = callbacks.OneCycleScheduler(lr_max=1e-4, n_data_points=X_train.shape[0], epochs=epochs, batch_size=batch_size, verbose=1)
+    checkpointer = callbacks.ParallelCheckpointCallback(serial_model, filepath=weights_file, save_every=10, dir=log_dir)
+    lr_sched = callbacks.OneCycleScheduler(lr_max=4e-5, n_data_points=X_train.shape[0], epochs=epochs, batch_size=batch_size, verbose=1)
     #tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=0, write_graph=False, write_images=False)  #Tensorfboard can be a memory hog.
     #earlystopping = EarlyStopping(patience=5)
     callback_list = [myprogress, checkpointer, lr_sched]# , earlystopping]#, tensorboard]
     if not noaugment:
         print("Adding callback for augment on the fly")
-        aug_on_fly = callbacks.AugmentOnTheFly(X_train, Y_train, aug_every=2)
+        aug_on_fly = callbacks.AugmentOnTheFly(X_train, Y_train, aug_every=1)
         callback_list.append(aug_on_fly)
 
     frozen_epochs = 2;  # how many epochs to first run with last layers of model frozen
@@ -89,12 +98,13 @@ if __name__ == '__main__':
     random.seed(seed)
 
     import argparse
-    parser = argparse.ArgumentParser(description="trains network on training dataset")
+    parser = argparse.ArgumentParser(description="trains network on training dataset",
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
      # greater batch size runs faster but may yield Out Of Memory errors
      # also note that small batches may yield better generalization: https://arxiv.org/pdf/1609.04836.pdf
-    parser.add_argument('-b', '--batch_size', type=int, help='Batch size to use', default=36)
+    parser.add_argument('-b', '--batch_size', type=int, help='Batch size to use', default=16)
     parser.add_argument('-d', '--datapath', help='Directory with images in Train/ and Val/ subdirs', default="./")
-    parser.add_argument('-e', '--epochs', type=int, help='Number of epochs to run', default=30)
+    parser.add_argument('-e', '--epochs', type=int, help='Number of epochs to run', default=100)
     parser.add_argument('-f', '--fraction', type=float, help='Fraction of dataset to use (for quick testing: -f 0.05)', default=1.0)
     parser.add_argument('-g', '--grid', help='Shape of predictor grid', default="6x6x2")
     parser.add_argument('-w', '--weights', help='Weights file in hdf5 format', default="weights.hdf5")
@@ -105,8 +115,17 @@ if __name__ == '__main__':
 
     pred_grid = [int(i) for i in args.grid.split('x')]  # convert string to shape
 
+    now = time.strftime("%c").replace('  ','_').replace(' ','_')   # date, with no double spaces or spaces
+    log_dir='./logs/'+now
+
     model = train_network(weights_file=args.weights, datapath=args.datapath, fraction=args.fraction, \
-        batch_size=args.batch_size, epochs=args.epochs, pred_grid=pred_grid, noaugment=args.noaugment)
+        batch_size=args.batch_size, epochs=args.epochs, pred_grid=pred_grid, noaugment=args.noaugment,
+        log_dir=log_dir)
+
+    # make predictions on dataset
+    predict_network(weights_file="", fraction=args.fraction,
+        log_dir='logs/Predicting/', batch_size=args.batch_size, model=model, X_pred='')
 
     # TODO: Score the model against Test dataset
+
     print("SPNet execution completed.")

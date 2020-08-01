@@ -46,7 +46,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 import tkinter as tk
-from tkinter.simpledialog import askinteger
+from tkinter.simpledialog import askfloat
 import math
 import numpy as np
 import pandas as pd
@@ -203,6 +203,7 @@ class EllipseEditor(tk.Frame):
         sys.exit()
     def on_skey(self,event):
         print("Saving file ",self.meta_file)
+        # TODO: add code to enforce a > b (and fix angle)
         self.df.to_csv(self.meta_file,index=False,header=None)
     def on_rightarrow(self,event):
         self.file_index += 1
@@ -348,7 +349,9 @@ class EllipseEditor(tk.Frame):
         tags = self.canvas.gettags( obj_id )
         #print("Right press detected! obj_id = ",obj_id, ", tags = ",tags)
         ringtext = self.canvas.itemcget(obj_id, 'text')
-        result = askinteger("How many rings", "How many rings?", initialvalue=int(ringtext), minvalue=1, maxval=11)
+        #result = askfloat("How many rings", "How many rings?", initialvalue=float(ringtext), minvalue=1, maxval=11)
+        result = askfloat("How many rings", "How many rings?", initialvalue=float(ringtext))
+
         self.canvas.itemconfigure(obj_id,text=str(result))
         self.canvas.focus_set()           # that dialog box stole the focus. get it back
         self.update_readout(None)
@@ -379,7 +382,7 @@ def setup_file_lists(file_args):
     # first iterate through the arugment list and if an arg is a directory, than grab names of all the csv files in it
     for path in file_args:
         if os.path.isdir(path):
-            dir_csv_list = glob.glob(path+'/*.csv')
+            dir_csv_list = sorted(glob.glob(path+'/*.csv'))
             meta_file_list += dir_csv_list
         else:
             meta_file_list.append(path)

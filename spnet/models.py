@@ -7,7 +7,7 @@ import keras
 import keras.backend as K
 from keras.engine.topology import Layer
 from keras.models import Sequential, Model, load_model
-from keras.layers import Input, Dense, Activation, Lambda, Concatenate, Add
+from keras.layers import Input, Dense, Activation, Lambda, Concatenate, Add, Dropout
 from keras.layers import Convolution2D, MaxPooling2D, AveragePooling2D, Flatten, Conv2D
 from keras.layers.normalization import BatchNormalization
 from keras.applications import Xception, VGG16
@@ -33,7 +33,40 @@ import spnet.config as cf
 from functools import partial
 
 from keras.utils.generic_utils import get_custom_objects
+import tempfile
+from keras import regularizers
 
+
+import os
+import tempfile
+
+
+# from https://gist.github.com/sthalles/d4e0c4691dc2be2497ba1cdbfe3bc2eb#file-add_regularization-py
+def add_regularization(model, regularizer=regularizers.l2(0.0001)):
+
+    print("Adding regularization")
+    #if not isinstance(regularizer, tf.keras.regularizers.Regularizer):
+    #  print("Regularizer must be a subclass of tf.keras.regularizers.Regularizer")
+    #  return model
+
+    for layer in model.layers:
+        for attr in ['kernel_regularizer']:
+            if hasattr(layer, attr):
+              setattr(layer, attr, regularizer)
+
+    # When we change the layers attributes, the change only happens in the model config file
+    model_json = model.to_json()
+
+    # Save the weights before reloading the model.
+    tmp_weights_path = os.path.join(tempfile.gettempdir(), 'tmp_weights.h5')
+    model.save_weights(tmp_weights_path)
+
+    # load the model from the config
+    model = keras.models.model_from_json(model_json)
+
+    # Reload the model weights
+    model.load_weights(tmp_weights_path, by_name=True)
+    return model
 
 
 class Mish(Activation):  # Mish is intereting but I get OOM errors.
@@ -264,7 +297,7 @@ class SelectiveSigmoid(Layer):
 
 
 
-def create_model_functional(X, Y0size=576, freeze_fac=0.75):
+def create_model_functional(X, Y0size=576, freeze_fac=0.75, quick_setup=False):
     """
     accepts a 'large' grayscale image (or set of images), runs a convnet & pooling to shrink it in a learnable way
     #  this produces a smaller set of 3 'color' images for different features.
@@ -272,7 +305,7 @@ def create_model_functional(X, Y0size=576, freeze_fac=0.75):
     This newer model incorporates sigmoid activations for existence / noobj predictions, and uses an
       "InterleaveColumns" layer to reorder the columns and produce output compatible with the previous model.
     """
-    print("Using functional API model")
+    print("Using functional API model, cf.basemodel =",cf.basemodel)
 
     # First part of the model is to take the large grayscale image, shrink it, and
     # add 3 conv operations to produce something akin to color channels to feed into the
@@ -302,7 +335,7 @@ def create_model_functional(X, Y0size=576, freeze_fac=0.75):
     x =  Add()([x, AveragePooling2D(pool_size=pool_size)(inputs)])  # residual skip connection on shrunk input
     #x =  Add()([x, id])  # residual skip connection on shrunk input
 
-    #x = Dropout(0.25)(x)
+    x = Dropout(0.1)(x)
     # Finished with first part of the model
     print("After initial convolutions & pooling, x.shape = ",x.shape)
 
@@ -326,8 +359,10 @@ def create_model_functional(X, Y0size=576, freeze_fac=0.75):
     #base_model = NASNetLarge(weights=weights, include_top=False, input_tensor=x)  # NASNetLarge is too big to fit in VRAM.
     else:
         # default is Xception: works fine, comparable high accuracy to InceptionResNetV2 but half the size
+        # Note: this requires editing keras file applications/xception.py to add ", by_name=True" in the load_weights() line(s)
         base_model = Xception(weights=weights, include_top=False, input_tensor=x)
 
+    base_model.trainable = True
 
     # Finally we stack on top, a 'flat' output
     x = Flatten(input_shape=base_model.output_shape[1:])(base_model.output)
@@ -348,6 +383,11 @@ def create_model_functional(X, Y0size=576, freeze_fac=0.75):
 
     model = Model(inputs=inputs, outputs=top)
 
+    if quick_setup:
+        return model
+
+    model = add_regularization(model)
+    print("After adding l2 regularization, model.losses =",model.losses)
 
     # set the first N layers of the base model (e.g., p to the last conv block)
     # to non-trainable (weights will not be updated)
@@ -397,7 +437,7 @@ def create_model_simple(X, Y0size=576, freeze_fac=0.75):
 
 
 def setup_model(X, Y0size=576, try_checkpoint=True, no_cp_fatal=False, \
-    weights_file='weights.hdf5', freeze_fac=0.75, parallel=True):
+    weights_file='weights.hdf5', freeze_fac=0.75, parallel=True, quick_setup=False):
     """
     this is the main routine for setting up the NN model, either 'from scratch' or loading from checkpoint
     """
@@ -406,7 +446,8 @@ def setup_model(X, Y0size=576, try_checkpoint=True, no_cp_fatal=False, \
     if cf.model_type == 'simple':
         model = create_model_simple(X, Y0size=Y0size, freeze_fac=freeze_fac)
     else:
-        model = create_model_functional(X, Y0size=Y0size, freeze_fac=freeze_fac)
+        model = create_model_functional(X, Y0size=Y0size, freeze_fac=freeze_fac, quick_setup=quick_setup)
+
 
     # Initialize weights using checkpoint if it exists.
     if (try_checkpoint):
@@ -421,14 +462,21 @@ def setup_model(X, Y0size=576, try_checkpoint=True, no_cp_fatal=False, \
             else:
                 print('    No weights file detected, so starting from scratch.')
 
+    serial_model = model
+
+
+    if quick_setup:
+        print("setup_model: quick_setup=True, returning early")
+        return model, serial_model
+
     opt = Adam(lr=0.00001)
     loss = custom_loss # custom_loss or 'mse'
 
-    serial_model = model
     if parallel and (len(multi_gpu.get_available_gpus())>1):
         model = multi_gpu.make_parallel(model)    # Note: easier to "unfreeze" later if we leave it in serial
 
-    model.compile(loss=loss, optimizer=opt)
+    if not quick_setup:                    # workaround to issues loading weights
+        model.compile(loss=loss, optimizer=opt)
 
     #print("Model summary:")    # Model summary for pre-fab CNN models is way too long. Omit
     #model.summary()
@@ -445,6 +493,20 @@ def unfreeze_model(model, X, Y, parallel=True):
         new_model = create_model_functional(X, Y[0].size, freeze_fac=0)  # identical spec as original model, just not setting 'trainable=False'
 
     new_model.set_weights( multi_gpu.get_serial_part( model, parallel=parallel).get_weights() )     # copy layer weights
+    # Add regularizer
+    """
+    print("Adding l2 regularization")
+    #  see https://sthalles.github.io/keras-regularizer/
+    from keras import regularizers
+    l2 = regularizers.l2(1e-4)
+    for layer in new_model.layers:
+    # if hasattr(layer, 'kernel'):
+    # or
+    # If you want to apply just on Conv
+        if isinstance(layer, keras.layers.Conv2D):
+            new_model.add_loss(lambda layer=layer: l2(layer.kernel))
+    print("After l2 regularization, new_model.losses =",new_model.losses)
+    """
 
     if parallel:
         new_model = multi_gpu.make_parallel(new_model)
@@ -460,9 +522,9 @@ def unfreeze_model(model, X, Y, parallel=True):
 # Lambda values tuned by experience: to make corresponding losses close to the same magnitude
 lambda_center = 2.0
 lambda_size = 1.0
-lambda_angle = 8.0
-lambda_noobj = 0.1
-lambda_class = 3.0
+lambda_angle = 3.0
+lambda_noobj = 0.3
+lambda_class = 5.0
 logeps = 1e-10       # small number to avoid log(0) errors
 
 def custom_loss(y_true, y_pred):  # it's just MSE but the angle term is weighted by (a-b)^2

@@ -8,7 +8,6 @@
 
 # Assumes you have ALREADY run parse_zooniverse_csv.py and that all real data is now
 # in <real_data_dir>
-real_data_dir = "/home/shawley/datasets/cleaned_zooniverse_steelpan/"
 
 import glob
 import os
@@ -20,14 +19,14 @@ from augment_data import *
 
 meta_extension = '.csv'
 
-def distribute_dataset():
+def distribute_dataset(real_data_dir):
     print("distribute_dataset: Copying data files (images & meta) from",real_data_dir,"to Train/, Val/ and Test/...")
     # Get list of input files (images and text annotations)
-    img_file_list = sorted(glob.glob(real_data_dir+'*.png'))
+    img_file_list = sorted(glob.glob(real_data_dir+'/*.png'))
     #print("img_file_list[0] = ",img_file_list[0])
     base = os.path.basename(img_file_list[0])
     #print("base = ",base)
-    meta_file_list = sorted(glob.glob(real_data_dir+'*'+meta_extension))
+    meta_file_list = sorted(glob.glob(real_data_dir+'/*'+meta_extension))
 
     assert len(img_file_list) == len(meta_file_list),"Error, mismatch of img and meta files"
 
@@ -58,13 +57,16 @@ def distribute_dataset():
 if __name__ == "__main__":
     random.seed(1)  # for determinism
     import argparse
-    parser = argparse.ArgumentParser(description="Sets up real data, augments")
-    parser.add_argument('-n', '--naugs', type=int, help='number of augmentations per image to generate', default=49)
-
+    parser = argparse.ArgumentParser(description="Sets up real data, augments in Train/",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('-d', '--data', help='directory containing labeled data',
+            default='/home/shawley/datasets/cleaned_zooniverse_steelpan/')
+    parser.add_argument('-n', '--naugs', type=int,
+        help='number of augmentations per image to generate', default=42)
     args = parser.parse_args()
 
     print("Clearing directories Train/ Test/ Val/")
     os.system("rm -rf Test Train Val")
-    numfiles = distribute_dataset()
+    numfiles = distribute_dataset(args.data)
     augment_data(n_augs=args.naugs)
     #gen_fake_espi(numframes=numfiles*8, train_only=True)  # add synthetic data to Training set

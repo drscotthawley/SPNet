@@ -319,12 +319,14 @@ def gen_images(task):
         noise = cv2.randn(np.zeros(np_dims, np.uint8),40,40); # normal dist, mean 40 std 40
         img = cv2.add(img, noise)
 
+        """
         # further degrade image: drop some pixels
         mask = np.random.choice([0,1],size=img.shape).astype(np.float32)
         img = img*mask
 
         # finally replace background using real data
         img = bandpass_mixup(img)
+        """
 
         prefix = dirname+'/steelpan_'+str(framenum).zfill(7)
         cv2.imwrite(prefix+'.png',img)

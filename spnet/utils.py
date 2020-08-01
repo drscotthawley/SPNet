@@ -15,6 +15,15 @@ import time
 from spnet import models, diagnostics
 import spnet.config as cf
 
+# for parallelism:
+from numba import jit
+
+from multiprocessing import Pool, sharedctypes, cpu_count, get_context
+from functools import partial
+import gc
+
+
+
 def make_sure_path_exists(path):
     try:                # go ahead and try to make the the directory
         os.makedirs(path)
@@ -254,6 +263,12 @@ def parse_meta_file(meta_filename):
         cx, cy = row['cx'], row['cy']
         a, b = row['a'], row['b']
         angle, num_rings = float(row['angle']), row['rings']
+
+        # For definiteness: make sure a > b; but if we swap them, then adjust the angle
+        if (b > a):
+            a, b = b, a            # swap
+            angle = angle + 90     # could subtract 90 instead; we're going to just take sin & cos of 2*angle later anyway
+
         # Input format (from file) is [cx, cy,  a, b, angle, num_rings]
         #    But we'll change that to [cx, cy, a, b, cos(2*angle), sin(2*angle), 0 (noobj=0, i.e. existence), num_rings] for ease of transition to classification
         if (num_rings > 0.0):    # Actually, check for existence
@@ -265,7 +280,6 @@ def parse_meta_file(meta_filename):
     arrs = sorted(arrs,key=itemgetter(0,1))     # sort by y first, then by x
 
     return arrs
-
 
 
 def build_Y(total_load, meta_file_list, img_file_list, pred_grid=[6,6,2], set_means_ranges=False):
@@ -302,28 +316,81 @@ def build_Y(total_load, meta_file_list, img_file_list, pred_grid=[6,6,2], set_me
     return Y, pred_shape              # pred_shape tells how to un-flatten Y
 
 
+## New: for parallel read of images into "X" array
+mp_shared_array = None                               # global variable for array
+def load_X_one_proc(img_file_list, force_dim, grayscale, i):
+    global mp_shared_array
+
+    # tmp will end up pointing to the memory address of the shared array we want to populate
+    tmp = np.ctypeslib.as_array(mp_shared_array)
+
+    img_filename = img_file_list[i]
+    if (0 == i % 2000):
+        print("      Reading image file i =",i,"/",len(img_file_list),":",img_filename)
+
+    img = load_img(img_filename)
+    if (force_dim is not None):         # resize image if needed
+        img = img.resize((force_dim,force_dim), PIL.Image.ANTIALIAS)
+    img = img_to_array(img)
+
+    img = img/255.0  # scale from 0 to 1
+    img -= 0.5       # zero-mean;  for Inception or Xception
+    img *= 2.        # for Inception or Xception
+
+    # copy from the individual image into the dataset
+    if (grayscale):
+        tmp[i,:,:,0] = img[:,:,0]   # let's throw out the RGB and just keep greyscale
+    else:
+        tmp[i,:,:,:] = img[:,:,:]   # (default) keep RGB, even though ESPI images are greyscale, b/c many CNN models expect RGB
+    return
+
 
 def build_X(total_load, img_file_list, force_dim=224, grayscale=False):
     """
     Reads in images and assigns them to the input "X" of the network
     """
+    global mp_shared_array
+    mp_shared_array = None
+
     print("      Reading images and assigning as input X...")
     img_filename = img_file_list[0]
     print("          First image file = ",img_filename)
     img = load_img(img_filename, grayscale=grayscale)  # this is a PIL image
 
     if (force_dim is not None):                 # resize if needed (to square image)
-        print("          Resizing images to force_dim = ",force_dim,"x",force_dim)
+        print(f"          Resizing images to {force_dim}x{force_dim}")
         img = img.resize((force_dim,force_dim), PIL.Image.ANTIALIAS)
 
     img = img_to_array(img)
     img_dims = img.shape
     print("          img_dims = ",img_dims)
+    # Allocate storage
     if (grayscale):
         X = np.zeros((total_load, img_dims[0], img_dims[1],1),dtype=cf.dtype)
     else:
         X = np.zeros((total_load, img_dims[0], img_dims[1], img_dims[2]),dtype=cf.dtype)
 
+    # Fill X array by reading image files (in parallel)
+    #      Next line requires numpy>=1.17 or else very large arrays will give an error
+    tmp = np.ctypeslib.as_ctypes(X)             # tmp variable avoids numpy garbage-collection bug
+    print("          Allocating shared storage for multiprocessing (this may take a while)")
+    mp_shared_array = sharedctypes.RawArray(tmp._type_, tmp)
+    num_procs = cpu_count()                     # set num_procs = 1 to recover serial execution
+    print("          Parallelizing image reads across",num_procs,"processes.  (Numbers may appear out of order.)")
+    #with get_context("spawn").Pool(num_procs) as p:
+    p = Pool(num_procs)
+    wrapper = partial(load_X_one_proc, img_file_list[0:total_load], force_dim, grayscale)
+    result = p.map(wrapper, range(total_load))                # here's where we farm out the op
+    X = np.ctypeslib.as_array(mp_shared_array, shape=X.shape)  # this actually happens pretty fast
+    p.close()
+    p.join()
+
+    # Next couple lines are here just to force garbage collection
+    mp_shared_array, tmp = None, None
+    gc.collect()
+
+    # parallelized, as above
+    """
     # TODO: parallelize this?
     for i in range(total_load):     # image info into X array
         # TODO: make this parallel, e.g. using Multiprocessing
@@ -345,6 +412,7 @@ def build_X(total_load, img_file_list, force_dim=224, grayscale=False):
             X[i,:,:,0] = img[:,:,0]   # let's throw out the RGB and just keep greyscale
         else:
             X[i,:,:,:] = img[:,:,:]   # (default) keep RGB, even though ESPI images are greyscale, b/c many CNN models expect RGB
+    """
 
     return X, img_dims
 

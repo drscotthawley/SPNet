@@ -11,6 +11,7 @@ import numpy as np
 import cv2
 import glob
 import os
+import sys
 from spnet.utils import *
 import random
 from multiprocessing import Pool
@@ -198,6 +199,7 @@ def augment_one_file(img_file_list, meta_file_list, n_augs, file_index):
     orig_metadata = read_metadata(meta_filename)
 
     for aug in range(n_augs):
+        #print("aug, orig_prefix =",aug, orig_prefix)
         img, metadata, prefix = orig_img, orig_metadata, orig_prefix
 
         #flip image
@@ -245,7 +247,8 @@ def augment_data(path='Train', n_augs=39):
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="augments data in path")
+    parser = argparse.ArgumentParser(description="augments data in path",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-p', '--path', #type=argparse.string,
         help='dataset directory in which to augment', default="Train/")
     parser.add_argument('-n', '--naugs', type=int, help='number of augmentations per image to generate', default=49)
