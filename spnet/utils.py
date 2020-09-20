@@ -418,8 +418,8 @@ def build_X(total_load, img_file_list, force_dim=224, grayscale=False):
 
 
 
-def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscale=False, \
-        force_dim=224, pred_grid=[6,6,2], batch_size=None, shuffle=True):
+def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False,
+        pred_grid=[6,6,2], batch_size=None, shuffle=True):
     """
     builds the Training or Test data set
     Inputs:
@@ -427,8 +427,8 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
       load_frac         Fraction of total amount of data to read from (useful to decrease dataset size for debugging)
       set_means_ranges  Sets the values of the mean of the data and the range. False=use existing values
                             For training set, use True, for others use False
-      grayscale         Use grascale images or not.  Set to False as most pre-made CNNs require 3 color slots
-      force_dim         Resize images to a square of this size. Again, for pre-made CNN models
+      #grayscale         Use grascale images or not.  Set to False as most pre-made CNNs require 3 color slots
+      #force_dim         Resize images to a square of this size. Again, for pre-made CNN models
       pred_grid         How big the output grid of predictors should be: a 6x6 grid with 2 predictors per 'cell' is useful
       batch_size        Used only to force the dataset size to be a multiple of this number
     Outputs:
@@ -436,6 +436,13 @@ def build_dataset(path="Train/", load_frac=1.0, set_means_ranges=False, grayscal
       pred_shape        Tells how to unflatten Y meaningfully. (it's equal to pred_grid.shape with cf.vars_per_pred tacked on the end)
     """
     global means, ranges
+
+    if cf.model_type == 'simple':
+        grayscale = False
+        force_dim = 224
+    else:
+        grayscale = True
+        force_dim = 331
 
     print("Loading data from",path,", fraction =",load_frac)
     #-------------------------------------------

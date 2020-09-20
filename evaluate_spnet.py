@@ -27,24 +27,27 @@ from distutils.version import LooseVersion
 from operator import itemgetter
 import PIL
 import io
-from models import *
-from utils import *
-from diagnostics import compute_iou
+from spnet.models import *
+from spnet.utils import *
+from spnet.diagnostics import compute_iou
+import spnet.config as cf
 
 
 # Main routine
-def evaluate_network(weights_file="", datapath="", fraction=1.0, log_dir="", batch_size=32):
+def evaluate_network(weights_file="", datapath="Test/", fraction=1.0, log_dir="", batch_size=32):
     np.random.seed(1)
 
     print("Getting data..., fraction = ",fraction)
-    testpath="Test/"
+    testpath = datapath
+    # options for how we run the model
+    model_type = cf.model_type
     X_test, Y_test, test_file_list, pred_shape  = build_dataset(path=testpath, \
         load_frac=fraction, set_means_ranges=True, batch_size=batch_size, shuffle=False)
 
 
     print("Loading model from",weights_file)
     model, serial_model = setup_model(X_test, try_checkpoint=True, no_cp_fatal=True, \
-        weights_file=weights_file, parallel=False)
+        weights_file=weights_file, parallel=False, quick_setup=True)
 
 
     m = X_test.shape[0]
@@ -58,6 +61,12 @@ def evaluate_network(weights_file="", datapath="", fraction=1.0, log_dir="", bat
     make_sure_path_exists(log_dir)
     Yt, Yp = denorm_Y(Y_test), denorm_Y(Y_pred)
     show_pred_ellipses(Yt, Yp, test_file_list, log_dir=log_dir, out_csv=log_dir+'hawley_spnet.csv')
+
+    # Comput metrics
+    ring_miscounts, total_obj, pix_err, ipem = diagnostics.calc_errors(Yp, Yt)
+    class_acc = (total_obj-ring_miscounts)*1.0/total_obj*100
+    print('Mean pixel error =',np.mean(pix_err))
+    print("Num ring miscounts = ",ring_miscounts,' / ',total_obj,'.   = ',class_acc,' % class. accuracy',sep="")
 
     return model
 
@@ -73,7 +82,11 @@ if __name__ == '__main__':
         help='Fraction of dataset to use', default=1.0)
     parser.add_argument('-l', '--logdir',
             help='Directory of log files', default='logs/Testing/')
-    parser.add_argument('-b', '--batch_size', type=int, help='Batch size to use', default=32)
+    parser.add_argument('-b', '--batch_size', type=int, help='Batch size to use', default=16)
 
     args = parser.parse_args()
     model = evaluate_network(weights_file=args.weights, datapath=args.datapath, fraction=args.fraction, log_dir=args.logdir, batch_size=args.batch_size)
+
+    weights2name = "eval_end_weights.hdf5"
+    print("Saving model to",weights2name)
+    model.save_weights(weights2name)
