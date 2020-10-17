@@ -340,7 +340,8 @@ def create_model_functional(X, Y0size=576, freeze_fac=0.75, quick_setup=False):
     print("After initial convolutions & pooling, x.shape = ",x.shape)
 
     # 'PreFab'/standard CNN middle section
-    weights = 'imagenet'  # None or 'imagenet'.  Note: If you ever get "You are trying to load a model with __layers___", you need to add by_name=True in the load_weights call for your Prefab CNN
+    #weights = 'imagenet'  # None or 'imagenet'.  Note: If you ever get "You are trying to load a model with __layers___", you need to add by_name=True in the load_weights call for your Prefab CNN
+    weights = None
     if cf.basemodel == 'mobilenet':
         # with CustomObjectScope({'relu6': ReLU(6.),'DepthwiseConv2D': DepthwiseConv2D}):  # newer keras
         with CustomObjectScope({'relu6': keras.applications.mobilenet.relu6,'DepthwiseConv2D': keras.applications.mobilenet.DepthwiseConv2D, 'custom_loss':custom_loss, 'tf':tf}):   # older keras
@@ -362,7 +363,20 @@ def create_model_functional(X, Y0size=576, freeze_fac=0.75, quick_setup=False):
         # Note: this requires editing keras file applications/xception.py to add ", by_name=True" in the load_weights() line(s)
         base_model = Xception(weights=weights, include_top=False, input_tensor=x)
 
-    base_model.trainable = True
+    num_layers = len(base_model.layers)
+    freeze_layers = int(num_layers * freeze_fac)
+    print("Freezing ",freeze_layers,"/",num_layers," layers of base_model")
+    if (freeze_fac == 1.0):
+        base_model.trainable = False
+    else:
+        base_model.trainable = True
+    # set the first N layers of the base model (e.g., p to the last conv block)
+    # to non-trainable (weights will not be updated)
+    # for fine-tuning, "freeze" most of the pre-trained model, and then unfreeze it later
+    if (freeze_layers > 0 ):
+        for i in range(freeze_layers):
+            base_model.layers[i].trainable = False
+
 
     # Finally we stack on top, a 'flat' output
     x = Flatten(input_shape=base_model.output_shape[1:])(base_model.output)
@@ -389,16 +403,26 @@ def create_model_functional(X, Y0size=576, freeze_fac=0.75, quick_setup=False):
     model = add_regularization(model)
     print("After adding l2 regularization, model.losses =",model.losses)
 
+    # One more time just for good measure: Freeze base model
     # set the first N layers of the base model (e.g., p to the last conv block)
     # to non-trainable (weights will not be updated)
     # for fine-tuning, "freeze" most of the pre-trained model, and then unfreeze it later
     num_layers = len(base_model.layers)
     freeze_layers = int(num_layers * freeze_fac)
     if (freeze_layers > 0 ):
-        print("Freezing ",freeze_layers,"/",num_layers," layers of base_model")
+        print("again: Freezing ",freeze_layers,"/",num_layers," layers of base_model")
         for i in range(freeze_layers):
             base_model.layers[i].trainable = False
 
+    # show how many trainable parameters there are
+    trainable_count = int(
+        np.sum([K.count_params(p) for p in set(model.trainable_weights)]))
+    non_trainable_count = int(
+        np.sum([K.count_params(p) for p in set(model.non_trainable_weights)]))
+
+    print('create_model_functional: Total params: {:,}'.format(trainable_count + non_trainable_count))
+    print('create_model_functional: Trainable params: {:,}'.format(trainable_count))
+    print('create_model_functional: Non-trainable params: {:,}'.format(non_trainable_count))
     return model
 
 
@@ -437,7 +461,7 @@ def create_model_simple(X, Y0size=576, freeze_fac=0.75):
 
 
 def setup_model(X, Y0size=576, try_checkpoint=True, no_cp_fatal=False, \
-    weights_file='weights.hdf5', freeze_fac=0.75, parallel=True, quick_setup=False):
+    weights_file='weights.hdf5', freeze_fac=0.75, parallel=False, quick_setup=False):
     """
     this is the main routine for setting up the NN model, either 'from scratch' or loading from checkpoint
     """
@@ -465,9 +489,9 @@ def setup_model(X, Y0size=576, try_checkpoint=True, no_cp_fatal=False, \
     serial_model = model
 
 
-    if quick_setup:
-        print("setup_model: quick_setup=True, returning early")
-        return model, serial_model
+    #if quick_setup:
+    #    print("setup_model: quick_setup=True, returning early")
+    #    return model, serial_model
 
     opt = Adam(lr=0.00001)
     loss = custom_loss # custom_loss or 'mse'
@@ -475,8 +499,9 @@ def setup_model(X, Y0size=576, try_checkpoint=True, no_cp_fatal=False, \
     if parallel and (len(multi_gpu.get_available_gpus())>1):
         model = multi_gpu.make_parallel(model)    # Note: easier to "unfreeze" later if we leave it in serial
 
-    if not quick_setup:                    # workaround to issues loading weights
-        model.compile(loss=loss, optimizer=opt)
+    #if not quick_setup:                    # workaround to issues loading weights
+    print("Compiling the model")
+    model.compile(loss=loss, optimizer=opt)
 
     #print("Model summary:")    # Model summary for pre-fab CNN models is way too long. Omit
     #model.summary()
@@ -515,6 +540,17 @@ def unfreeze_model(model, X, Y, parallel=True):
     loss = custom_loss # custom_loss or 'mse'
     new_model.compile(loss=loss, optimizer=opt)
     print("  ...finished un-freezing model")
+
+    # show how many trainable parameters there are
+    trainable_count = int(
+        np.sum([K.count_params(p) for p in set(new_model.trainable_weights)]))
+    non_trainable_count = int(
+        np.sum([K.count_params(p) for p in set(new_model.non_trainable_weights)]))
+
+    print('post-unfreeze_model: Total params: {:,}'.format(trainable_count + non_trainable_count))
+    print('post-unfreeze_model: Trainable params: {:,}'.format(trainable_count))
+    print('post-unfreeze_model: Non-trainable params: {:,}'.format(non_trainable_count))
+
     return new_model
 
 
