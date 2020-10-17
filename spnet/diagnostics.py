@@ -10,17 +10,17 @@ from spnet import utils
 
 
 
-def calc_errors(Yp, Yv):
+def calc_errors(Yp, Yt):
     """
     Calc errors in ring counts
       Yp = model prediction
-      Yv = true value for validation set
-      Yp & Yv have already been 'denormalized' at this point
+      Yt = true value
+      Yp & Yt have already been 'denormalized' at this point
 
       Not: index = 2 is where the ring count is stored.
     """
-    max_pred_antinodes = int(Yv.shape[1]/cf.vars_per_pred)
-    diff = Yp - Yv
+    max_pred_antinodes = int(Yt.shape[1]/cf.vars_per_pred)
+    diff = Yp - Yt
     # pixel error in antinode centers
     pix_err = np.sqrt(diff[:,0]**2 + diff[:,1]**2)
     ipem = np.argmax(pix_err)               # index of pixel error maximum
@@ -28,16 +28,16 @@ def calc_errors(Yp, Yv):
     # number of ring miscounts
     miscounts = 0
     total_obj = 0                           # total is the number of true objects
-    for j in range(Yv.shape[0]):
+    for j in range(Yt.shape[0]):
         for an in range(max_pred_antinodes):
             ind = cf.ind_rings + an * cf.vars_per_pred
-            rings_t = int(round(Yv[j,ind]))
+            rings_t = int(round(Yt[j,ind]))
             i_noobj = cf.ind_noobj + an * cf.vars_per_pred
-            if (0 == int(round(Yv[j,i_noobj])) ):   # Is there supposed to be an object there? If so, count the rings
+            if (0 == int(round(Yt[j,i_noobj])) ):   # Is there supposed to be an object there? If so, count the rings
                 total_obj += 1
                 if (int(round(Yp[j,ind])) != rings_t): # compare integer ring counts
                     miscounts += 1
-            elif (int(round(Yv[j,i_noobj])) != int(round(Yp[j,i_noobj]))):  # consider false background as a mistake
+            elif (int(round(Yt[j,i_noobj])) != int(round(Yp[j,i_noobj]))):  # consider false background as a mistake
                 miscounts += 1
 
     return miscounts, total_obj, pix_err, ipem
@@ -50,31 +50,54 @@ def draw_filled_ellipse(img, center, axes, angle):
 
 def create_ellipse_image(args, nx=512, ny=384):
     '''
-    args = (cx, cy, a, b, angle, noobj, rings)
+      If it's not suppsed to exist, then this returns an image of all zeros
+      nx, ny = image dimensions, resolution
     '''
-    img = np.zeros( (ny, nx, 1), np.uint8)
-    img = draw_filled_ellipse(img, args[0:2], args[2:4], args[4])
+    img = np.zeros( (ny, nx, 1), np.uint8)   # note we reverse nx & ny b/c numpy
+    (cx, cy, a, b, cos2t, sin2t, noobj, rings) = args
+
+    if (noobj < 0.5): # check that ellipse is supposed to exist before drawing anything
+        angle = np.rad2deg( np.arctan2(sin2t,cos2t)/2.0 )
+        img = draw_filled_ellipse(img, [cx,cy], [a,b], angle)
+
     return img
 
 
-def compute_iou(args_a, args_b, display=False):
+def compute_iou(args_p, args_t, display=False):
     """
     Note: this operates on one pair of ellipses at a time
-    If one of the ellipses does not exist, this will return zero (intersection=0, union!=0)
+       args_a:  Parameters for the predicted ellipse, where
+          args = (cx, cy, a, b, cos2t, sin2t, noobj, rings)
+       args_b:  Parameters for the true ellipse
+    If only one of the ellipses does not exist, this will return zero (intersection=0, union!=0)
+
+    # Since the true values come with "default" values for thing, they are denoted by
+        noobj = 1.
+    If both ellipses don't exist (nothing supposed to be there, nothing predicted there), then
+      then this returns a code of -1
     """
-    img_a = create_ellipse_image(args_a)
-    img_b = create_ellipse_image(args_b)
-    img_i = cv2.bitwise_and(img_a,img_b)   # intersection image
-    img_u = cv2.bitwise_or(img_a,img_b)    # union image
+    # args = (cx, cy, a, b, angle, noobj, rings)
+    if args_t[-2] > 0.99: # todo just for now
+        return -1
+    #print("    compute_iou: args_p =",args_p)
+    #print("    compute_iou: args_t =",args_t)
+    img_p = create_ellipse_image(args_p)
+    img_t = create_ellipse_image(args_t)
+    img_i = cv2.bitwise_and(img_p, img_t)   # intersection image
+    img_u = cv2.bitwise_or(img_p, img_t)    # union image
     num_i, num_u = cv2.countNonZero(img_i) , cv2.countNonZero(img_u)
-    if num_u > 0:
+    #print("          num_i, num_u =",num_i, num_u)
+    iou = 0
+    if (num_i == 0) and (num_u == 0):
+        iou = -1
+    elif num_u > 0:
         iou = num_i / num_u
     else:                  # this is only reached if there are no ellipses defined at all
         assert False,"Error in compute_iou: "
 
     if display:
-        cv2.imshow('img_a', img_a)
-        cv2.imshow('img_b', img_b),
+        cv2.imshow('img_a', img_p)
+        cv2.imshow('img_b', img_t),
         cv2.imshow('intersection', img_i)
         cv2.imshow('union', img_u), cv2.waitKey(0)
         cv2.destroyAllWindows()
@@ -82,12 +105,44 @@ def compute_iou(args_a, args_b, display=False):
 #--------- End of routines for IOU
 
 
-#--------- Compute Precision
 # Precision measures false positive rate: ratio of true object detections to the total number of objects that the detector predicted.
+def precision(Yp, Yt, thresh=0.5):
+    tp_count = 0 # true positive: predicted it was supposed to, with iou > thresh.
+    fp_count = 0 # false positive: shouldn't have predicted anythihg but did
+    fn_count = 0 # false neg: should have predicted something but didn't
+    for i in range(Yp.shape[0]): # loop over images
+        for j in np.arange(0, Yp.shape[1], cf.vars_per_pred): # loop over grid-predictors
+            args_p = Yp[i,j:j+cf.vars_per_pred]
+            args_t = Yt[i,j:j+cf.vars_per_pred]
+            iou = compute_iou(args_p, args_t)
+            if iou < 0:
+                continue  # skip what's below but keep going in for loops
+            #print("i, j, iou = ",i,j,iou)
+            if (iou > thresh): # this is a "hit"!
+                tp_count += 1
+            elif (args_p[-2] < 0.5) and (args_t[-2] >= 0.5):
+                fp_count += 1
+            elif (args_p[-2] >= 0.5) and (args_t[-2] < 0.5):
+                fn_count += 1
+
+    print("precision: thresh = ",thresh,",tp_count, fp_count, fn_count = ",tp_count, fp_count, fn_count)
+    denom = (tp_count + fp_count + fn_count) # total number of ellipses
+    #assert denom == Yp.shape[0] # sanity check
+    prec =  tp_count / denom
+    print("precision: thresh, prec = ",thresh,prec)
+    return prec
 #--------- End of computing precision
 
-#--------- Compute Recall
-#--------- End of computing recall
+def calc_map(Yp, Yt):
+    # calculate Mean Average Precision
+    print("calc_map: Yp.shape[0] =",Yp.shape[0])
+    threshes = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
+    prec_tot = 0
+    for thresh in threshes:
+        prec_tot += precision(Yp, Yt, thresh=thresh)
+    map = prec_tot / len(threshes)
+    return map
+
 
 
 if __name__ == '__main__':
