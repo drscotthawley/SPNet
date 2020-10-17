@@ -57,16 +57,19 @@ def evaluate_network(weights_file="", datapath="Test/", fraction=1.0, log_dir=""
     elapsed = time.time() - start_time
     print("    ...elapsed time to predict = ",elapsed,"s.   FPS = ",m*1.0/elapsed)
 
-    print("    Drawing sample ellipse images...")
-    make_sure_path_exists(log_dir)
     Yt, Yp = denorm_Y(Y_test), denorm_Y(Y_pred)
+    print("map = ",diagnostics.calc_map(Yp, Yt))
+
+    make_sure_path_exists(log_dir)
+    print("    Drawing sample ellipse images...")
     show_pred_ellipses(Yt, Yp, test_file_list, log_dir=log_dir, out_csv=log_dir+'hawley_spnet.csv')
 
-    # Comput metrics
+    # Compute metrics
     ring_miscounts, total_obj, pix_err, ipem = diagnostics.calc_errors(Yp, Yt)
     class_acc = (total_obj-ring_miscounts)*1.0/total_obj*100
     print('Mean pixel error =',np.mean(pix_err))
     print("Num ring miscounts = ",ring_miscounts,' / ',total_obj,'.   = ',class_acc,' % class. accuracy',sep="")
+
 
     return model
 
@@ -85,7 +88,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--batch_size', type=int, help='Batch size to use', default=16)
 
     args = parser.parse_args()
-    model = evaluate_network(weights_file=args.weights, datapath=args.datapath, fraction=args.fraction, log_dir=args.logdir, batch_size=args.batch_size)
+    model = evaluate_network(weights_file=args.weights, datapath=args.datapath+'/', fraction=args.fraction, log_dir=args.logdir, batch_size=args.batch_size)
 
     weights2name = "eval_end_weights.hdf5"
     print("Saving model to",weights2name)
