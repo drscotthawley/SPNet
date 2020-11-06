@@ -53,6 +53,17 @@ def draw_ellipse(
     return ellipse
 
 
+def cleanup_antinode_vars(Y_subarr):
+    '''This is just a 'clean'-up wrapper to make show_pred_ellipses (below) read easier
+       Y_subarr is one set of variables, i.e. Y_subarr = Y[j,an*cf.vars_per_pred:(an+1)*cf.vars_per_pred]
+    '''
+    [cx, cy, a, b, cos2t, sin2t, noobj, rings] = Y_subarr
+    [cx, cy, a, b, noobj] = [int(round(x)) for x in [cx, cy,  a, b, noobj]] # OpenCV wants ints or it barfs
+    angle = np.rad2deg( np.arctan2(sin2t,cos2t)/2.0 )  # note that we didn't cos2t and sin2t are floats, not ints
+    angle = angle if angle > 0 else angle+180
+    return cx, cy, a, b, angle, noobj, rings
+
+
 def show_pred_ellipses(Yt, Yp, file_list, num_draw=40, log_dir='./logs/', ind_extra=None, out_csv=None, show_true=True,verbosity=0):
     """
     draws a bunch of sample output files showing where ellipses are on images
@@ -84,43 +95,37 @@ def show_pred_ellipses(Yt, Yp, file_list, num_draw=40, log_dir='./logs/', ind_ex
         opencvImage = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)      # convert from PIL to OpenCV
         img = opencvImage
 
+        todraw_list =  [{'name':'True','Y':Yt, 'color':cf.truecolor, 'bg':cf.black,'yo':0}] if show_true else []
+        todraw_list += [{'name':'Pred','Y':Yp, 'color':cf.predcolor, 'bg':cf.lightgrey, 'yo':27}]
+
         max_pred_antinodes = int(Yt[0].size / cf.vars_per_pred)
         for an in range(max_pred_antinodes):    # count through all antinodes
+            # why two 'todraw' loops intead of just one?  Because it "looks better" if the number-text for the True doesn't get overdrawn
+            #    by ellipse of the Prediction
 
-            if (show_true == True):
-                [cx, cy, a, b, cos2t, sin2t, noobj, rings] = Yt[j,an*cf.vars_per_pred:(an+1)*cf.vars_per_pred]   # ellipse for Testing
-                cx, cy,  a, b, noobj = int(round(cx)), int(round(cy)),  int(round(a)), int(round(b)), int(round(noobj)) # OpenCV wants ints or it barfs
-                angle = np.rad2deg( np.arctan2(sin2t,cos2t)/2.0 )
-                if (angle < 0):
-                    angle += 180
+            # first draw the ellipses
+            for todraw in todraw_list:
+                cx, cy, a, b, angle, noobj, rings = cleanup_antinode_vars(todraw['Y'][j,an*cf.vars_per_pred:(an+1)*cf.vars_per_pred])
+                if (noobj==0):  # noobj==0 means there is an object, note int(noobj) above means it's 1 or zero here
+                    if (an < 6) and (verbosity > 0):  # little text output for logging
+                        print(f"          {todraw['name']}:   {cx: >4d}, {cy: >4d},  {a: >4d}, {b: >4d},   {angle: >6.2f},  {noobj: >2d}, {rings: >4.1f}")
+                    if (rings > 0) and (a>=0) and (b>=0):  # only draw if you should and if you can
+                        draw_ellipse(img, [cx, cy], [a,b], angle, color=todraw['color'], thickness=3)
 
-                if (an < 6) and (0 == noobj):  # noobj==0 means there is an object
-                    if verbosity > 0: print("       True:   {: >4d}, {: >4d},  {: >4d}, {: >4d},   {: >6.2f},  {: >2d}, {: >4.1f}".format(cx, cy, a, b, angle, noobj, rings))
-                if (noobj < 0.5) and (rings > 0) and (a>=0) and (b>=0):  # only draw if you should and if you can
-                    draw_ellipse(img, [cx, cy], [a,b], angle, color=cf.red, thickness=2)
-                    #cv2.putText(img, "{: >2d}".format(rings), (cx-13,cy), cv2.FONT_HERSHEY_TRIPLEX, 0.95, grey, lineType=cv2.LINE_AA);  # add a little outline for readibility
-                    cv2.putText(img, "{: >3.1f}".format(rings), (cx-10,cy+2), cv2.FONT_HERSHEY_TRIPLEX, 0.95, cf.black, lineType=cv2.LINE_AA)  # add a little outline for readibility
-                    cv2.putText(img, "{: >3.1f}".format(rings), (cx-10,cy), cv2.FONT_HERSHEY_TRIPLEX, 0.85, cf.red, lineType=cv2.LINE_AA)
-
-            [cx, cy, a, b, cos2t, sin2t, noobj, rings] = Yp[j,an*cf.vars_per_pred:(an+1)*cf.vars_per_pred]   # ellipse for Prediction
-            cx, cy,  a, b, noobj = int(round(cx)), int(round(cy)),  int(round(a)), int(round(b)), int(round(noobj)) # OpenCV wants ints or it barfs
-            angle = np.rad2deg( np.arctan2(sin2t,cos2t)/2.0 )
-            if (angle < 0):
-                angle += 180
-
-            if (an < 6) and (0 == noobj):
-                if verbosity > 0: print("       Pred:   {: >4d}, {: >4d},  {: >4d}, {: >4d},   {: >6.2f},  {: >2d}, {: >4.1f}".format(cx, cy, a, b, angle, noobj, rings))
-            if (noobj < 0.5) and (rings > 0) and (a>=0) and (b>=0):  # only draw if you should and if you can
-                draw_ellipse(img, [cx, cy], [a,b], angle, color=cf.green, thickness=2)
-                #cv2.putText(img, "{: >2d}".format(rings), (cx-13,cy+27), cv2.FONT_HERSHEY_TRIPLEX, 0.95, grey, lineType=cv2.LINE_AA)     # white outline
-                cv2.putText(img, "{: >3.1f}".format(rings), (cx-10,cy+29), cv2.FONT_HERSHEY_TRIPLEX, 0.95, cf.black, lineType=cv2.LINE_AA)     # dark outline
-                cv2.putText(img, "{: >3.1f}".format(rings), (cx-10,cy+27), cv2.FONT_HERSHEY_TRIPLEX, 0.85, cf.green, lineType=cv2.LINE_AA)
-                if (out_csv is not None):
-                    csv_str += "{},{},{},{},{},{},{}".format(cx, cy, os.path.basename(in_filename), rings, a, b, angle)+'\n'
+            # now draw the text
+            for todraw in todraw_list:
+                cx, cy, a, b, angle, noobj, rings = cleanup_antinode_vars(todraw['Y'][j,an*cf.vars_per_pred:(an+1)*cf.vars_per_pred])
+                if (noobj==0) and (rings > 0) and (a>=0) and (b>=0):
+                    cv2.putText(img, "{: >3.1f}".format(rings), (cx-12,cy+todraw['yo']), cv2.FONT_HERSHEY_TRIPLEX, 0.95, color=todraw['bg'], thickness=2,  lineType=cv2.LINE_AA);  # add a little outline for readibility
+                    cv2.putText(img, "{: >3.1f}".format(rings), (cx-10,cy+2+todraw['yo']), cv2.FONT_HERSHEY_TRIPLEX, fontScale=0.95, color=todraw['bg'], thickness=2, lineType=cv2.LINE_AA)  # add a little shadow/outline for readibility
+                    cv2.putText(img, "{: >3.1f}".format(rings), (cx-10,cy+todraw['yo']), cv2.FONT_HERSHEY_TRIPLEX, fontScale=0.9, color=todraw['color'], thickness=1, lineType=cv2.LINE_AA)
+                    if (todraw['name'] == 'Pred') and (out_csv is not None):
+                        csv_str += "{},{},{},{},{},{},{}".format(cx, cy, os.path.basename(in_filename), rings, a, b, angle)+'\n'
 
         if (out_csv is not None) and (csv_str == ''):   # if nothing for this image, output zeros
             csv_str = '0,0,'+os.path.basename(in_filename)+',0,0,0,0\n'
 
+        # write the original filename on the bottom left of the image, to make it easy to find again.
         cv2.putText(img, os.path.basename(in_filename), (7, orig_img_dims[1]-3), cv2.FONT_HERSHEY_SIMPLEX, 0.55, cf.black, lineType=cv2.LINE_AA); # display the filename
         cv2.putText(img, os.path.basename(in_filename), (5, orig_img_dims[1]-5), cv2.FONT_HERSHEY_SIMPLEX, 0.55, cf.white, lineType=cv2.LINE_AA); # display the filename
 
@@ -129,7 +134,6 @@ def show_pred_ellipses(Yt, Yp, file_list, num_draw=40, log_dir='./logs/', ind_ex
         if (out_csv is not None):               # add to the csv log
             with open(out_csv, "a") as file_csv_out:
                 file_csv_out.write(csv_str)
-
     return
 
 
