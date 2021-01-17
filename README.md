@@ -1,6 +1,10 @@
 # SPNet - Object detection for [ESPI](https://en.wikipedia.org/wiki/Electronic_speckle_pattern_interferometry)  images of oscillating steelpan drums
 
-_S.H. Hawley, Oct 2017_
+_S.H. Hawley, Oct 2017-Jan 2020._
+
+_Warning: This is "research" code, modified many times over the span of 3+ years to support only one user (me). It is shared publicly here for the purposes of transparency and verification,  but it should not be regarded as a "package" or library maintained for general public use -- you may find it messy and frustrating._
+
+
 
 Sample image:
 
