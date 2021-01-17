@@ -2,7 +2,7 @@
 
 _S.H. Hawley, Oct 2017-Jan 2020._
 
-_Warning: This is "research" code, modified many times over the span of 3+ years to support only one user (me). It is shared publicly here for the purposes of transparency and verification,  but it should not be regarded as a "package" or library maintained for general public use -- you may find it messy and frustrating._
+_Warning: This is "research" code, modified many times over the span of 3+ years to support only one user (me). It is shared publicly here for the purposes of transparency and verification,  but it should not be regarded as a "package" or library maintained for general public use._
 
 
 
@@ -76,6 +76,20 @@ u. Now you should be ready to train: ` ~/SPNet/train_spnet.py `
 ffmpeg -r 1/5 -i steelpan_pred_%05d.png -c:v libx264 -vf fps=25 -pix_fmt yuv420p out.mp4
 ```
 
+## Cite as:
+```
+@article{spnet_hawley_morrison,
+  author={Scott H. Hawley and Andrew C. Morrison},
+  title={ConvNets for Counting: Object Detection of Antinode Displacements in Oscillating Steelpan Drums},
+  url={arXiv:??},
+  month={Jan},
+  year={2021},
+  journal={Submitted to Special Issue on Machine Learning in Acoustics, Journal of the Acoustical Society of America (JASA)},
+}
+```
+
+### Related:
+Slides from talk at Dec. 2019 Acoustical Society meeting: [https://hedges.belmont.edu/~shawley/SPNET_ASA2019.pdf](https://hedges.belmont.edu/~shawley/SPNET_ASA2019.pdf)
 
 --
 Scott H. Hawley
