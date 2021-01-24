@@ -50,11 +50,18 @@ Generates 50,000 fake images, placing them in directories Train, Val and Test.
 Actually does the training.  It has a few options, e.g. where files are/go, and 
 how much of dataset to use.  Try running `./train_fake_espi --help`
 
-More later.
+In addition, the synthetic data "standardized" to use in the paper as Datasets A and C 
+is available for download from Zenodo: https://zenodo.org/record/4445434. Dataset C 
+is a style transfer of Dataset A using CycleGAN and some real images. 
+
+
 
 ### 'Real' Data:
+Not released yet.  There's still more physics to mine from this effort before letting everyone else have a go. 
+
 
 #### Workflow:
+(This is a reminder to myself, as I'd resume work on this after long gaps of time.)
 The following assumes SPNet/ is in your home directory, and you're on a Unix-like system.
 
 *Hawley note to self: run `source activate py36` on lecun to get the correct environment*
