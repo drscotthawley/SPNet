@@ -37,23 +37,20 @@ pip install -r requirements.txt
 (To remove the environment: `conda env remove --name spnet`)
 
 ### Syntethic Data:
-The 'real' datasets is Andrew Morrison's business. But you can test SPNet using 'fake' images:
+The 'real' dataset is Andrew Morrison's I.P., and will not be made publicly available for some time to come.  But you can test SPNet using 'fake' images, either generated anew or downloaded from Zenodo:
     ./gen_fake_espi
 Generates 50,000 fake images, placing them in directories Train, Val and Test.
+ It has a few options, e.g. where files are/go, and 
+how much of dataset to use.  Try running with `--help`
 
-
-    ./train_fake_espi
-Actually does the training.  It has a few options, e.g. where files are/go, and 
-how much of dataset to use.  Try running `./train_fake_espi --help`
-
-In addition, the synthetic data "standardized" to use in the paper as Datasets A and C 
+In addition, the synthetic data "standardized" for use in the paper as Datasets A and C 
 is available for download from Zenodo: https://zenodo.org/record/4445434. Dataset C 
-is a style transfer of Dataset A using CycleGAN and some real images. 
+is a style transfer of Dataset A using CycleGAN and some real images (to set the style). 
 
 
 
 ### 'Real' Data:
-Not released yet.  There's still more physics to mine from this effort before letting everyone else have a go. 
+Not released yet.  There's still more physics to extract from this effort before letting everyone else have a go. 
 
 
 #### Workflow:
@@ -71,6 +68,7 @@ The following assumes SPNet/ is in your home directory, and you're on a Unix-lik
 7. "Set Up" the Data: Run `./setup_data.py`.  This will segment the dataset into Train, Val & Test subsets,
 *and* do augmentation on (only) the Train/ data.  (If later you want to re-augment, you can run `augment_data.py` alone.)   Note:The augmentation will also include synthetic data.
 u. Now you should be ready to train: ` ~/SPNet/train_spnet.py `
+
 
 ## Making a movie
 `./predict_network.py` will output a list of `.png` files in `logs/Predicting`.  To turn them into an mp4 movie named `out.mp4`, cd in to the `logs/Predicting` directory and then run
