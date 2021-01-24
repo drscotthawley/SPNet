@@ -79,11 +79,15 @@ u. Now you should be ready to train: ` ~/SPNet/train_spnet.py `
 ffmpeg -r 1/5 -i steelpan_pred_%05d.png -c:v libx264 -vf fps=25 -pix_fmt yuv420p out.mp4
 ```
 
+## Are pretrained weights available?
+Yes and no. Files exist, but I'm still working to resolve an intermittant error whereby weights saved at the end of training will occasionally produce garbage upon re-loading into a new session. https://github.com/keras-team/keras/issues/4875.
+
+
 ## Cite as:
 ```
 @article{spnet_hawley_morrison,
   author={Scott H. Hawley and Andrew C. Morrison},
-  title={ConvNets for Counting: Object Detection of Antinode Displacements in Oscillating Steelpan Drums},
+  title={ConvNets for Counting: Object Detection of Time Dependent Behavior in Steelpan Drums},
   url={arXiv:??},
   month={Jan},
   year={2021},
