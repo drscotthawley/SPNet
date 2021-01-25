@@ -90,7 +90,7 @@ ffmpeg -r 1/5 -i steelpan_pred_%05d.png -c:v libx264 -vf fps=25 -pix_fmt yuv420p
 ```
 
 ## Are pretrained weights available?
-Yes and no. Files exist, but I'm still working to resolve an intermittant error whereby weights saved at the end of training will occasionally produce garbage upon re-loading into a new session. https://github.com/keras-team/keras/issues/4875.
+Yes and no. Files exist, but I'm still working to resolve an intermittant error whereby weights saved at the end of training will occasionally produce garbage upon re-loading into a new session. Track this at https://github.com/drscotthawley/SPNet/issues/2.
 
 
 ## Cite as:
