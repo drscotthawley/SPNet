@@ -2,7 +2,7 @@
 
 _S.H. Hawley, Oct 2017-Jan 2020._
 
-_Warning: This is "research" code, modified many times over the span of 3+ years to support only one user (me). It is shared publicly here for the purposes of transparency and verification,  but it should not be regarded as a "package" or library maintained for general public use._
+_Warning: This is "research" code, modified many times over the span of 3+ years to support only one user (me). It is shared publicly here for the purposes of transparency and verification,  but it should not be regarded as a "package" or library maintained for general public use.  It still uses an old version of Keras (because updating to Keras 2 introduced errors that proved difficult to track down).  It is designed to run on my two desktop machines which each have >=64 GB of RAM, with one having a NVIDIA Titan X GPU running CUDA 10.2 and the other an RTX 2080Ti and CUDA 11._
 
 
 
