@@ -65,10 +65,9 @@ Not released yet.  There's still more physics to extract from this effort before
 run with `--help` for list of options.
 
 
-#### Workflow:
+### Typical Workflow for Real Data:
 (This is a reminder to myself, as I'd resume work on this after long gaps of time.)
-The following assumes SPNet/ is in your home directory, and you're on a Unix-like system.
-
+The following assumes SPNet/ is in the home directory, and you're on a Unix-like system.
 *Hawley note to self: run `source activate py36` on lecun to get the correct environment*
 
 1. Obtain single .csv file of (averaged) Zooniverse output (e.g. from achmorrison), and rename it `zooniverse_labeled_dataset.csv` (TODO: offer command line param for filename)
