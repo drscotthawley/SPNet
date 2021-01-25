@@ -36,14 +36,17 @@ pip install -r requirements.txt
 ```
 (To remove the environment: `conda env remove --name spnet`)
 
-### Syntethic Data:
-The 'real' dataset is Andrew Morrison's I.P., and will not be made publicly available for some time to come.  But you can test SPNet using 'fake' images, either generated anew or downloaded from Zenodo:
+### "Fake" Data:
+The "real" drum-image dataset is Andrew Morrison's I.P., and will not be made publicly available for some time to come.  But you can test SPNet using 'fake' images, either generated anew or downloaded from Zenodo.  The command
+
     ./gen_fake_espi
+
 Generates 50,000 fake images, placing them in directories Train, Val and Test.
  It has a few options, e.g. where files are/go, and 
 how much of dataset to use.  Try running with `--help`
 
-In addition, the synthetic data "standardized" for use in the paper as Datasets A and C 
+
+In addition, the fake data standardized for use in the paper as Datasets A and C 
 is available for download from Zenodo: https://zenodo.org/record/4445434. Dataset C 
 is a style transfer of Dataset A using CycleGAN and some real images (to set the style). 
 
