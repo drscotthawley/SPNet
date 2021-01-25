@@ -86,10 +86,9 @@ Yes and no. Files exist, but I'm still working to resolve an intermittant error 
 @article{spnet_hawley_morrison,
   author={Scott H. Hawley and Andrew C. Morrison},
   title={ConvNets for Counting: Object Detection of Time Dependent Behavior in Steelpan Drums},
-  url={arXiv:??},
   month={Jan},
   year={2021},
-  journal={Submitted to Special Issue on Machine Learning in Acoustics, Journal of the Acoustical Society of America (JASA)},
+  note={Submitted to Special Issue on Machine Learning in Acoustics, Journal of the Acoustical Society of America (JASA)},
 }
 ```
 
