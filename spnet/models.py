@@ -24,7 +24,6 @@ from keras.layers.advanced_activations import ELU, PReLU, LeakyReLU
 from keras.callbacks import ModelCheckpoint, Callback, EarlyStopping, TensorBoard
 from keras.optimizers import SGD, Adam
 
-from keras.applications.mobilenet import MobileNet
 from keras.utils.generic_utils import get_custom_objects, CustomObjectScope
 import tensorflow as tf
 from os.path import isfile
@@ -36,10 +35,13 @@ from keras.utils.generic_utils import get_custom_objects
 import tempfile
 from keras import regularizers
 
-
+import sys
 import os
 import tempfile
 
+
+def str_to_class(str):  # Used to clean up definitions of models
+    return getattr(sys.modules[__name__], str)
 
 # from https://gist.github.com/sthalles/d4e0c4691dc2be2497ba1cdbfe3bc2eb#file-add_regularization-py
 def add_regularization(model, regularizer=regularizers.l2(0.0001)):
@@ -62,7 +64,7 @@ def add_regularization(model, regularizer=regularizers.l2(0.0001)):
     model.save_weights(tmp_weights_path)
 
     # load the model from the config
-    model = keras.models.model_from_json(model_json)
+    model = keras.models.model_from_json(model_json, {'SelectiveSigmoid': SelectiveSigmoid})
 
     # Reload the model weights
     model.load_weights(tmp_weights_path, by_name=True)
@@ -342,26 +344,19 @@ def create_model_functional(X, Y0size=576, freeze_fac=0.75, quick_setup=False):
     # 'PreFab'/standard CNN middle section
     #weights = 'imagenet'  # None or 'imagenet'.  Note: If you ever get "You are trying to load a model with __layers___", you need to add by_name=True in the load_weights call for your Prefab CNN
     weights = None
-    if cf.basemodel == 'mobilenet':
+    weights = "imagenet"
+    base_model_class = str_to_class(cf.basemodel)
+    if cf.basemodel == 'MobileNet':
         # with CustomObjectScope({'relu6': ReLU(6.),'DepthwiseConv2D': DepthwiseConv2D}):  # newer keras
         with CustomObjectScope({'relu6': keras.applications.mobilenet.relu6,'DepthwiseConv2D': keras.applications.mobilenet.DepthwiseConv2D, 'custom_loss':custom_loss, 'tf':tf}):   # older keras
             input_shape = x.shape[1:4]
             print("input_shape = ",input_shape)
             print("input_shape[-1] = ",input_shape[-1])
-            base_model = MobileNet(input_shape=input_shape, weights=None, include_top=False, input_tensor=x, dropout=0.6)       # Works well, VERY FAST! Needs img size 224x224
-    elif cf.basemodel == 'nasnetmobile':
-        base_model = NASNetMobile(input_shape=x[0].shape, weights=weights, include_top=False, input_tensor=x)
-    elif cf.basemodel == 'inceptionv3':
-        base_model = InceptionV3(weights=weights, include_top=False, input_tensor=x)       # Works well, fast
-    elif cf.basemodel == 'inceptionresnetv2':
-        base_model = InceptionResNetV2(weights=weights, include_top=False, input_tensor=x)  # works ok, big, slow.  doesn't play well with "unfreeze" in multi-gpu setting
-    elif cf.basemodel == 'densenet121':
-        base_model = DenseNet121(weights=weights, include_top=False, input_tensor=x)
-    #base_model = NASNetLarge(weights=weights, include_top=False, input_tensor=x)  # NASNetLarge is too big to fit in VRAM.
+            base_model = MobileNet(input_shape=input_shape, weights=weights, include_top=False, input_tensor=x, dropout=0.6)       # Works well, VERY FAST! Needs img size 224x224
     else:
-        # default is Xception: works fine, comparable high accuracy to InceptionResNetV2 but half the size
-        # Note: this requires editing keras file applications/xception.py to add ", by_name=True" in the load_weights() line(s)
-        base_model = Xception(weights=weights, include_top=False, input_tensor=x)
+        base_model_class = getattr(sys.modules[__name__], cf.basemodel )  # use basemodel string to load Keras model
+        # Note: this requires modifying keras file applications/<model_name>.py to add ", by_name=True" in the load_weights() line(s)
+        base_model = base_model_class(weights=None, include_top=False, input_tensor=x)
 
     num_layers = len(base_model.layers)
     freeze_layers = int(num_layers * freeze_fac)
@@ -377,6 +372,7 @@ def create_model_functional(X, Y0size=576, freeze_fac=0.75, quick_setup=False):
         for i in range(freeze_layers):
             base_model.layers[i].trainable = False
 
+    print("base_model.output_shape =",base_model.output_shape)
 
     # Finally we stack on top, a 'flat' output
     x = Flatten(input_shape=base_model.output_shape[1:])(base_model.output)
@@ -391,9 +387,11 @@ def create_model_functional(X, Y0size=576, freeze_fac=0.75, quick_setup=False):
     else:
         top = Dense(Y0size, name='FinalOutput')(x)
 
-    if (cf.loss_type != 'same'):
+    ''' # We'll handle 'same' loss function option in the loss routine itself
+    if cf.loss_type != 'same':  # cf.model_type == 'ss':
         print("**Adding SelectiveSigmoid**")
         top = SelectiveSigmoid(name='ReallyFinalOutput')(top) # make the existence variables sigmoids
+    '''
 
     model = Model(inputs=inputs, outputs=top)
 
@@ -509,7 +507,7 @@ def setup_model(X, Y0size=576, try_checkpoint=True, no_cp_fatal=False, \
     return model, serial_model
 
 
-def unfreeze_model(model, X, Y, parallel=True):
+def unfreeze_model(model, X, Y, parallel=False):
     print("Unfreezing Model: make a new identical model, then copy the layer weights.")
 
     if cf.model_type == 'simple':
@@ -559,26 +557,31 @@ def unfreeze_model(model, X, Y, parallel=True):
 lambda_center = 2.0
 lambda_size = 1.0
 lambda_angle = 3.0
-lambda_noobj = 0.3
+lambda_noobj = 0.3   # note that other parts of loss are scaled by *ground truth* noobj/p, not predicted noobj/p
 lambda_class = 5.0
 logeps = 1e-10       # small number to avoid log(0) errors
 
 def custom_loss(y_true, y_pred):  # it's just MSE but the angle term is weighted by (a-b)^2
-    print("custom_loss function engaged!")
+    print("custom_loss function engaged!. cf.loss_type =",cf.loss_type)
     sqerr = K.square(y_true - y_pred)   # loss is 'built on' squared error
-    pobj =      1 - y_true[:, cf.ind_noobj::cf.vars_per_pred]   # probability of object", i.e. existence.  if no object, then we don't care about the rest of the variables
-    pobj_pred = 1 - y_pred[:, cf.ind_noobj::cf.vars_per_pred]
+    pobj_true = 1 - y_true[:, cf.ind_noobj::cf.vars_per_pred]   # "probability of object", i.e. existence.  if no object, then we don't care about the rest of the variables
 
-    if cf.loss_type=='same':
+    if cf.loss_type=='same':  # MSE everywhere
         loss = lambda_noobj * K.sum(sqerr[:, cf.ind_noobj::cf.vars_per_pred], axis=-1)  # MSE version
     else:
-        loss = lambda_noobj * (-K.sum(  pobj*K.log(pobj_pred+logeps) + (1-pobj)*tf.log1p(-pobj_pred) , axis=-1) )
+        # unstable/naive:
+        #    pobj_pred = 1 - y_pred[:, cf.ind_noobj::cf.vars_per_pred]  # this variable is only used for BCE loss
+        #    loss = lambda_noobj * (-K.sum(  pobj_true*K.log(pobj_pred+logeps) + (1-pobj_true)*tf.log1p(-pobj_pred) , axis=-1) )
+        # stable/clever:
+        noobj_true = y_true[:, cf.ind_noobj::cf.vars_per_pred]  # just defined for conveniece / readability
+        z =          y_pred[:, cf.ind_noobj::cf.vars_per_pred]  # treat noobj pred values as logits (don't use SelectiveSigmoid!)
+        loss  = lambda_noobj * K.sum( K.maximum(0.0, z) - z*noobj_true + tf.log1p(K.exp(-K.abs(z))), axis=-1 )
 
-    loss += lambda_center * ( K.sum(pobj* sqerr[:,cf.ind_cx::cf.vars_per_pred],     axis=-1) + K.sum(pobj* sqerr[:,cf.ind_cy:-1:cf.vars_per_pred], axis=-1))
-    loss += lambda_size  * ( K.sum(pobj* sqerr[:,cf.ind_semi_a::cf.vars_per_pred], axis=-1) + K.sum(pobj* sqerr[:,cf.ind_semi_b:-1:cf.vars_per_pred], axis=-1))
+    loss += lambda_center * ( K.sum(pobj_true* sqerr[:,cf.ind_cx::cf.vars_per_pred],     axis=-1) + K.sum(pobj_true* sqerr[:,cf.ind_cy:-1:cf.vars_per_pred], axis=-1))
+    loss += lambda_size  * ( K.sum(pobj_true* sqerr[:,cf.ind_semi_a::cf.vars_per_pred], axis=-1) + K.sum(pobj_true* sqerr[:,cf.ind_semi_b:-1:cf.vars_per_pred], axis=-1))
     abdiff = y_true[:, cf.ind_semi_a::cf.vars_per_pred] - y_true[:, cf.ind_semi_b:-1:cf.vars_per_pred]
-    loss += lambda_angle * ( K.sum(pobj* sqerr[:, cf.ind_angle1::cf.vars_per_pred] * K.square(abdiff) , axis=-1) + K.sum(pobj* sqerr[:, cf.ind_angle2::cf.vars_per_pred] * K.square(abdiff), axis=-1))
-    loss += lambda_class * K.sum( pobj * sqerr[:, cf.ind_rings::cf.vars_per_pred], axis=-1)
+    loss += lambda_angle * ( K.sum(pobj_true* sqerr[:, cf.ind_angle1::cf.vars_per_pred] * K.square(abdiff) , axis=-1) + K.sum(pobj_true* sqerr[:, cf.ind_angle2::cf.vars_per_pred] * K.square(abdiff), axis=-1))
+    loss += lambda_class * K.sum( pobj_true * sqerr[:, cf.ind_rings::cf.vars_per_pred], axis=-1)
 
     # take average
     ncols = K.int_shape(y_pred)[-1]
@@ -591,20 +594,26 @@ def custom_loss(y_true, y_pred):  # it's just MSE but the angle term is weighted
 def my_loss(y_true, y_pred, verbosity=0):  # diagnostic.
     y_shape = y_pred.shape
 
-    sqerr = (y_true - y_pred)**2   # loss is 'built on' squared error
-    pobj =      1 - y_true[:, cf.ind_noobj::cf.vars_per_pred]   # probability of object", i.e. existence.  if no object, then we don't care about the rest of the variables
-    pobj_pred = 1 - y_pred[:, cf.ind_noobj::cf.vars_per_pred]
+    sqerr = (y_true - y_pred)**2   # almost all of loss is 'built on' squared error
 
-    if cf.loss_type=='same':
+    pobj_true = 1 - y_true[:, cf.ind_noobj::cf.vars_per_pred] # =0's & 1's.  true "probability of object", i.e. existence.  if no object, then we don't care about the rest of the variables
+
+    if cf.loss_type=='same':  # MSE everywhere, including noobj / pobj
         noobj_loss  = lambda_noobj * np.sum(sqerr[:, cf.ind_noobj::cf.vars_per_pred], axis=-1)  # MSE loss
-    else:
-        noobj_loss = lambda_noobj * (-np.sum(  pobj*np.log(pobj_pred+logeps) + (1-pobj)*np.log1p(-pobj_pred) , axis=-1) )  # Cross-entropy loss
+    else:                     # BCE loss for existence
+        # Naive/unstable way to do this:  (will yield NaNs eventually)
+        #      pobj_pred = 1 - y_pred[:, cf.ind_noobj::cf.vars_per_pred]  # this variable is only used for BCE loss
+        #      noobj_loss = lambda_noobj * (-np.sum(  pobj_true*np.log(pobj_pred+logeps) + (1-pobj_true)*np.log1p(-pobj_pred) , axis=-1) )  # Cross-entropy loss
+        # Clever/stable way:
+        noobj_true = y_true[:, cf.ind_noobj::cf.vars_per_pred]  # aux variable for convenience / readability
+        z =          y_pred[:, cf.ind_noobj::cf.vars_per_pred]  # treat noobj pred values as logits (don't use SelectiveSigmoid!)
+        noobj_loss  = lambda_noobj * np.sum( np.maximum(0.0, z) - z*noobj_true + np.log1p(np.exp(-np.abs(z))), axis=-1 )
 
-    center_loss = lambda_center * (np.sum(pobj* sqerr[:,cf.ind_cx::cf.vars_per_pred],     axis=-1) + np.sum(pobj* sqerr[:,cf.ind_cy::cf.vars_per_pred], axis=-1))
-    size_loss   = lambda_size  * ( np.sum(pobj* sqerr[:,cf.ind_semi_a::cf.vars_per_pred], axis=-1) + np.sum(pobj* sqerr[:,cf.ind_semi_b::cf.vars_per_pred], axis=-1))
+    center_loss = lambda_center * (np.sum(pobj_true* sqerr[:,cf.ind_cx::cf.vars_per_pred],     axis=-1) + np.sum(pobj_true* sqerr[:,cf.ind_cy::cf.vars_per_pred], axis=-1))
+    size_loss   = lambda_size  * ( np.sum(pobj_true* sqerr[:,cf.ind_semi_a::cf.vars_per_pred], axis=-1) + np.sum(pobj_true* sqerr[:,cf.ind_semi_b::cf.vars_per_pred], axis=-1))
     abdiff = y_true[:, cf.ind_semi_a::cf.vars_per_pred] - y_true[:, cf.ind_semi_b::cf.vars_per_pred]
-    angle_loss  = lambda_angle * ( np.sum(pobj * sqerr[:, cf.ind_angle1::cf.vars_per_pred] * (abdiff**2) , axis=-1) + np.sum(pobj * sqerr[:, cf.ind_angle2::cf.vars_per_pred] * (abdiff**2) , axis=-1) )
-    class_loss  = lambda_class * np.sum(pobj * sqerr[:, cf.ind_rings::cf.vars_per_pred], axis=-1)
+    angle_loss  = lambda_angle * ( np.sum(pobj_true * sqerr[:, cf.ind_angle1::cf.vars_per_pred] * (abdiff**2) , axis=-1) + np.sum(pobj_true * sqerr[:, cf.ind_angle2::cf.vars_per_pred] * (abdiff**2) , axis=-1) )
+    class_loss  = lambda_class * np.sum(pobj_true * sqerr[:, cf.ind_rings::cf.vars_per_pred], axis=-1)
 
     losses = np.array([center_loss, size_loss, angle_loss, noobj_loss, class_loss])
     losses = np.mean(losses,axis=-1)
