@@ -18,12 +18,14 @@ import random
 import os
 import time
 import multiprocessing as mp
+from spnet.augmentation import *
 from spnet.utils import *
 import sys, traceback
 from shutil import get_terminal_size
 import glob
 
 winName = 'ImgWindowName'
+datapath = './'                 # directory off which the Train/ & Val/ etc dirs will go (modified by args.datapath)
 #imWidth = 224                  # needed for MobileNet
 #imHeight = imWidth
 imWidth = 512
@@ -55,58 +57,6 @@ train_only_global = True           # Only gen fake images for the training set. 
 pad = ''
 
 
-def bandpass_mixup(img_fake, path_real='/home/shawley/datasets/parsed_zooniverze_steelpan/'):
-    '''
-    For more realistic-looking images, replace low & high frequency components ('background')
-    of fake images using those components from real images
-    '''
-
-    # get a random background from the group of 'true' images
-    file_true = random.choice(glob.glob(path_real+'/*.png'))
-    img_true = cv2.imread(file_true, cv2.IMREAD_GRAYSCALE)
-    # maybe flip the image
-    flipchoice = np.random.choice([-1,0,1,2])
-    if (flipchoice != 2):
-        img_true = cv2.flip(img_true, flipchoice)
-
-    # take fourier transforms of fake and true images
-    dft_true = cv2.dft(np.float32(img_true),flags = cv2.DFT_COMPLEX_OUTPUT)
-    dft_shift_true = np.fft.fftshift(dft_true)    # center the "dc" part of image
-
-    dft_fake = cv2.dft(np.float32(img_fake),flags = cv2.DFT_COMPLEX_OUTPUT)
-    dft_shift_fake = np.fft.fftshift(dft_fake)    # center the "dc" part of image
-
-    # Set up a filter: Keep the Lows and the Highs
-    # create a rectagular mask first, center square is 1, remaining all zeros. LPF
-    rows, cols = img_fake.shape
-    crow,ccol = rows//2 , cols//2
-    wl, wh = 8, 0     #  width for LPF and HPF respectively
-    mask = np.zeros((rows,cols,2),np.uint8)
-    mask[crow-wl:crow+wl, ccol-wl:ccol+wl] = 1   # LPF
-    if wh > 0:
-        mask[0:wh,:] = 1    # HPF
-        mask[-wh:,:] = 1    # HPF
-        mask[:,0:wh] = 1    # HPF
-        mask[:,-wh:] = 1    # HPF
-    fshift = np.random.rand()*3*dft_shift_true*mask + (1-mask)*dft_shift_fake   # L/H from true, mids from fake
-
-    # inverse DFT
-    f_ishift = np.fft.ifftshift(fshift)
-    img_back = cv2.idft(f_ishift)
-    img_back = cv2.magnitude(img_back[:,:,0],img_back[:,:,1])
-    cv2.normalize(img_back, img_back, 0, 255, cv2.NORM_MINMAX)
-
-    return np.clip(img_back, 0, 255)
-
-
-def blur_image(img, kernel_size=7):
-    if (0==kernel_size):
-        return img
-    new_img = img#.copy()
-    new_img = cv2.GaussianBlur(img,(kernel_size,kernel_size),0)
-    return new_img
-
-
 def draw_waves(img):
     #pts = np.array([[10,5],[20,30],[70,20],[50,10]], np.int32)
     xs = np.arange(0, imWidth)
@@ -129,14 +79,6 @@ def draw_waves(img):
         cv2.polylines(img, [pts], False, black, thickness=thickness)
     return
 
-
-
-def swap(a,b):
-    tmp = a
-    a = b
-    b = tmp
-    return a,b
-
 def get_ellipse_box(center, axes, angle):  # converts ellipse to bounding box
     rad = np.radians(angle)
     a = axes[0]
@@ -150,9 +92,9 @@ def get_ellipse_box(center, axes, angle):  # converts ellipse to bounding box
     ymax = center[1] + delta_y
     # just a bit of error-correction code
     if (xmin > xmax):
-        xmin,xmax = swap(xmin,xmax)
+        xmin,xmax = xmax, xmin   # swap
     if (ymin > ymax):
-        ymin, ymax = swap(ymin,ymax)
+        ymin, ymax = ymax, ymin  # swap
     return [xmin,ymin,xmax,ymax]
 
 
@@ -273,7 +215,7 @@ def gen_images_wrapper(task):
 
 
 def gen_images(task):
-    global pad
+    global pad,datapath
     if (train_only_global):
         dirname = 'Train/'
     else:
@@ -283,6 +225,7 @@ def gen_images(task):
             dirname = 'Train'
         else:
             dirname = 'Val'
+    dirname = datapath + dirname
 
     # used for spacing out task output
     pad_space = max(14, int(round( get_terminal_size().columns / (num_tasks+0.5))))
@@ -296,7 +239,7 @@ def gen_images(task):
     for iframe in range(frames_per_task):
         framenum = frame_start + task * frames_per_task + iframe
         if (0 == framenum % 1):
-            print(pad,":",framenum,"/",task_maxframe,sep="",end="\r")
+            print(f"{pad}:{framenum}/{task_maxframe}  ",sep="",end="\r")
         np_dims = (imHeight, imWidth, 1)                       # for numpy, dimensions are reversed
 
         img = 128*np.ones(np_dims, np.uint8)
@@ -305,15 +248,16 @@ def gen_images(task):
         draw_waves(img)   # this is the main bottleneck, execution-time-wise
         #print(pad,":",framenum," BDW ",sep="",end="\r")
 
-        max_antinodes = 6
-        num_antinodes= random.randint(0,max_antinodes)
+        max_antinodes = 7   # Nov 11 2020 increasing from 6 to 7.
+        num_antinodes= random.randint(1,max_antinodes)  # Nov 11 2020 elminating 0 because w/ 0 model doesn't learn as much
 
         img, caption = draw_antinodes(img, num_antinodes=num_antinodes)
 
-        blur_dice_roll = np.random.random()
-        if (blur_dice_roll <= blur_prob):
-            blur_ksize = random.choice([3,5])
-            img = blur_image(img, kernel_size=blur_ksize)
+        blur_inplace(img)
+        #blur_dice_roll = np.random.random()
+        #if (blur_dice_roll <= blur_prob):
+        #    blur_ksize = random.choice([3,5])
+        #    img = blur_image(img, kernel_size=blur_ksize)
 
         # post-blur noise
         noise = cv2.randn(np.zeros(np_dims, np.uint8),40,40); # normal dist, mean 40 std 40
@@ -324,10 +268,11 @@ def gen_images(task):
         img = img*mask
 
         # finally replace background using real data
-        img = bandpass_mixup(img)
+        bp_img = bandpass_mixup(img)
 
         prefix = dirname+'/steelpan_'+str(framenum).zfill(7)
         cv2.imwrite(prefix+'.png',img)
+        cv2.imwrite(prefix+'_bp.png',bp_img)
         with open(prefix+meta_extension, "w") as text_file:
             text_file.write(caption)
 
@@ -335,7 +280,7 @@ def gen_images(task):
 
 
 def gen_fake_espi(numframes=1000, train_only=True):
-    global frame_start, num_frames, num_tasks, frames_per_task, train_only_global
+    global frame_start, num_frames, num_tasks, frames_per_task, train_only_global, datapath
     print("gen_fake_data: Generating synthetic data")
     num_frames = numframes
     frame_start = 0
@@ -345,8 +290,8 @@ def gen_fake_espi(numframes=1000, train_only=True):
 
     start_time = time.clock()
 
-    make_sure_path_exists('Train')
-    make_sure_path_exists('Val')
+    make_sure_path_exists(datapath+'Train')
+    make_sure_path_exists(datapath+'Val')
     #make_sure_path_exists('Test')
 
 
@@ -369,15 +314,16 @@ def gen_fake_espi(numframes=1000, train_only=True):
 
 # --- Main code
 if __name__ == "__main__":
-    #global frame_start, num_frames, num_tasks, frames_per_task
-    random.seed(1)
-    np.random.seed(1)
+    random.seed(0)
+    np.random.seed(0)
     import argparse
-    parser = argparse.ArgumentParser(description="trains network on training dataset")
+    parser = argparse.ArgumentParser(description="trains network on training dataset",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('-d', '--datapath', help='Directory to write with images to (in Train/ and maybe Val/ subdirs)', default=".")
     parser.add_argument('-n', '--numframes', type=int, help='Number of images to generate', default=500)
     parser.add_argument('-a', '--all',
         help='generate all data , default is Train only', default=False, action='store_true')
     args = parser.parse_args()
-
+    datapath = args.datapath+'/'
     gen_fake_espi(numframes=args.numframes, train_only=(not args.all))
 #cv2.destroyAllWindows()
