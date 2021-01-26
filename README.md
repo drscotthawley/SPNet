@@ -89,7 +89,7 @@ u. Now you should be ready to train: ` ~/SPNet/train_spnet.py `
 ffmpeg -r 1/5 -i steelpan_pred_%05d.png -c:v libx264 -vf fps=25 -pix_fmt yuv420p out.mp4
 ```
 
-### [Sample movie](https://hedges.belmont.edu/spnet_steelpan_movie_trimmed.mov)
+### [Sample movie](https://hedges.belmont.edu/~shawley/steelpan/spnet_steelpan_movie_trimmed.mov)
 <video controls>
   <source src="https://hedges.belmont.edu/spnet_steelpan_movie_trimmed.mov"
           type='video/mp4;codecs="avc1.42E01E, mp4a.40.2"' width="512" height="384" />
