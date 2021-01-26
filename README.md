@@ -89,6 +89,12 @@ u. Now you should be ready to train: ` ~/SPNet/train_spnet.py `
 ffmpeg -r 1/5 -i steelpan_pred_%05d.png -c:v libx264 -vf fps=25 -pix_fmt yuv420p out.mp4
 ```
 
+### [Sample movie](https://hedges.belmont.edu/spnet_steelpan_movie_trimmed.mov)
+<video controls>
+  <source src="https://hedges.belmont.edu/spnet_steelpan_movie_trimmed.mov"
+          type='video/mp4;codecs="avc1.42E01E, mp4a.40.2"' width="512" height="384" />
+</video>
+
 ## Are pretrained weights available?
 Yes and no. Files exist, but I'm still working to resolve an intermittant error whereby weights saved at the end of training will occasionally produce garbage upon re-loading into a new session. Track this at https://github.com/drscotthawley/SPNet/issues/2.
 
