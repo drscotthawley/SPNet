@@ -8,7 +8,7 @@ _Warning: This is "research" code, modified many times over the span of 3+ years
 
 Sample image:
 
-![sample image](http://hedges.belmont.edu/~shawley/steelpan/steelpan_pred_00002.png)
+![sample image](http://hedges.belmont.edu/~shawley/steelpan/steelpan_sample_image.png)
 
 **Goal**: Assist with the [Steelpan Vibrations](https://www.zooniverse.org/projects/achmorrison/steelpan-vibrations) project, using machine learning trained on human-labeled data
 
