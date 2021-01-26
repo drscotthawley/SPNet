@@ -30,7 +30,7 @@ Create a conda environment, but use pip for package installs
 ```
 git clone git@github.com:drscotthawley/SPNet.git
 cd SPNet
-conda create -y --name spnet python=3.5.4
+conda create -y --name spnet python=3.7
 conda activate spnet
 pip install -r requirements.txt
 ```
