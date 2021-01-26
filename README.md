@@ -90,10 +90,20 @@ ffmpeg -r 1/5 -i steelpan_pred_%05d.png -c:v libx264 -vf fps=25 -pix_fmt yuv420p
 ```
 
 ### [Sample movie](https://hedges.belmont.edu/~shawley/steelpan/spnet_steelpan_movie_trimmed.mov)
+Trying to get GitHub to let me embed a video below:
+
+Embed method 1: (video tag)
 <video controls>
-  <source src="https://hedges.belmont.edu/spnet_steelpan_movie_trimmed.mov"
+  <source src="https://hedges.belmont.edu/~shawley/steelpan/spnet_steelpan_movie_trimmed.mov"
           type='video/mp4;codecs="avc1.42E01E, mp4a.40.2"' width="512" height="384" />
 </video>
+
+Embed method 2: (embed tag)
+<embed src="https://hedges.belmont.edu/~shawley/steelpan/spnet_steelpan_movie_trimmed.mov" Pluginspage="https://support.apple.com/quicktime" width="512" height="384" CONTROLLER="true" LOOP="false" AUTOPLAY="false" name="SPNet Movie of Drum Strike"></embed>
+
+Embed method 3: (iframe)
+<iframe src="https://hedges.belmont.edu/~shawley/steelpan/movie_embed.html" title="SPNet Movie of Drum Strike" height="512" width="384"></iframe>
+
 
 ## Are pretrained weights available?
 Yes and no. Files exist, but I'm still working to resolve an intermittant error whereby weights saved at the end of training will occasionally produce garbage upon re-loading into a new session. Track this at https://github.com/drscotthawley/SPNet/issues/2.
