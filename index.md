@@ -1,46 +1,3 @@
-## Welcome to GitHub Pages
-
-You can use the [editor on GitHub](https://github.com/drscotthawley/SPNet/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
-
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
-
-### Markdown
-
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
-
-```markdown
-Syntax highlighted code block
-
-# Header 1
-## Header 2
-### Header 3
-
-- Bulleted
-- List
-
-1. Numbered
-2. List
-
-**Bold** and _Italic_ and `Code` text
-
-[Link](url) and ![Image](src)
-```
-
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
-
-### Jekyll Themes
-
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/drscotthawley/SPNet/settings). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
-
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://support.github.com/contact) and we’ll help you sort it out.
-
-
-
-
-
-
 # SPNet - Object detection for [ESPI](https://en.wikipedia.org/wiki/Electronic_speckle_pattern_interferometry)  images of oscillating steelpan drums
 
 _S.H. Hawley, Oct 2017-Jan 2020._
@@ -133,19 +90,11 @@ ffmpeg -r 1/5 -i steelpan_pred_%05d.png -c:v libx264 -vf fps=25 -pix_fmt yuv420p
 ```
 
 ### [Sample movie](https://hedges.belmont.edu/~shawley/steelpan/spnet_steelpan_movie_trimmed.mov)
-Trying to get GitHub to let me embed a video below:
-
-Embed method 1: (video tag)
 <video controls>
   <source src="https://hedges.belmont.edu/~shawley/steelpan/spnet_steelpan_movie_trimmed.mov"
           type='video/mp4;codecs="avc1.42E01E, mp4a.40.2"' width="512" height="384" />
 </video>
 
-Embed method 2: (embed tag)
-<embed src="https://hedges.belmont.edu/~shawley/steelpan/spnet_steelpan_movie_trimmed.mov" Pluginspage="https://support.apple.com/quicktime" width="512" height="384" CONTROLLER="true" LOOP="false" AUTOPLAY="false" name="SPNet Movie of Drum Strike"></embed>
-
-Embed method 3: (iframe)
-<iframe src="https://hedges.belmont.edu/~shawley/steelpan/movie_embed.html" title="SPNet Movie of Drum Strike" height="512" width="384"></iframe>
 
 
 ## Are pretrained weights available?
