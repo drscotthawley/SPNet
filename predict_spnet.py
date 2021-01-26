@@ -2,6 +2,8 @@
 
 # Pulls up some image files and predicts ellipses & ring-counts for them.
 
+# Does not perform any kind of scoring or evaluation.  The assumption is
+# that annotations for these images my not exist. 
 
 # disable FutureWarnings from numpy re. tensorflow
 import warnings
@@ -45,6 +47,9 @@ def predict_network(weights_file="spnet.model", datapath=default_image_dir, frac
         if model_type == 'simple':
             grayscale = False
             force_dim = 224
+        elif cf.model_type == 'big':
+            grayscale = True  # throw out any RGB components in image file, just keep R
+            force_dim = None  # Don't resize input images. May need to decrease batch size to fit in VRAM
         else:
             grayscale = True
             force_dim = 331

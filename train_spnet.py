@@ -20,10 +20,13 @@ import sys
 
 from distutils.version import LooseVersion
 import PIL
-from spnet import models, utils, multi_gpu, diagnostics, callbacks
 import random
+from spnet import models, utils, multi_gpu, diagnostics, callbacks
 import spnet.config as cf
 from predict_spnet import predict_network
+from evaluate_spnet import evaluate_network
+
+import os
 
 
 def train_network(weights_file="weights.hdf5", datapath=".", fraction=1.0, batch_size=32, \
@@ -50,8 +53,8 @@ def train_network(weights_file="weights.hdf5", datapath=".", fraction=1.0, batch
 
     print("Seting up NN model.  model_type = ",cf.model_type)
     parallel=False
-    model, serial_model = models.setup_model(X_train, Y_train[0].size, no_cp_fatal=False, weights_file=weights_file, parallel=parallel, \
-        freeze_fac=freeze_fac)
+    model, serial_model = models.setup_model(X_train, Y_train[0].size, no_cp_fatal=False,
+        weights_file=weights_file, parallel=parallel, freeze_fac=freeze_fac)
 
     # Set up callbacks
     myprogress = callbacks.MyProgressCallback(X_val=X_val, Y_val=Y_val, val_file_list=val_file_list, log_dir=log_dir, pred_shape=pred_shape)
@@ -118,18 +121,32 @@ if __name__ == '__main__':
     log_dir = './logs/'+args.name+'_'+now if args.name else './logs/'+now
     print("Logging will go to ",log_dir)
 
+    print("\n----------------------------\nStarting training...")
     model = train_network(weights_file=args.weights, datapath=args.datapath, fraction=args.fraction, \
         batch_size=args.batch_size, epochs=args.epochs, pred_grid=pred_grid, noaugment=args.noaugment,
         log_dir=log_dir, lr_max=args.lrmax, freeze_fac=args.freeze_fac, frozen_epochs=args.frozen_epochs,
         random_seed=args.random_seed)
 
-    # make predictions on dataset
+    # run model evaluation
+    print("\n----------------------------\nStarting model evaluation...")
+    testpath = args.datapath+'/Test/'
+    if not os.path.isdir(testpath):
+        testpath = args.datapath+'/Val/'
+    #X_test, Y_test, test_file_list, pred_shape  = utils.build_dataset(path=testpath, load_frac=1.0, \
+    #    set_means_ranges=False, batch_size=args.batch_size, pred_grid=pred_grid)
+    evaluate_network(model=model, weights_file="", datapath=testpath, fraction=1.0, log_dir="logs/Evaluation/",
+        batch_size=args.batch_size, pred_grid=pred_grid, set_means_ranges=False)
+
+    # make predictions on Zooniverse dataset
+    print("\n----------------------------\nStarting Zooniverse predictions...")
     predict_network(weights_file="", fraction=args.fraction,
         log_dir='logs/Predicting/', batch_size=args.batch_size, model=model, X_pred='')
 
-    # TODO: Score the model against Test dataset
     weights2name = "final_"+args.weights
     print("Just to be sure: Saving model to",weights2name)
     model.save_weights(weights2name)
 
+    print("And saving full model too")
+    model.save("full_model.h5")
     print("SPNet execution completed.")
+    os.system(f'cp nohup.out *.h5 *.hdf5 {log_dir}') # copy things to the log dir

@@ -11,6 +11,7 @@ import tensorflow as tf
 from spnet import models, diagnostics
 from spnet.config import *
 from spnet.utils import *
+from spnet.augmentation import *
 import io
 from numba import jit
 
@@ -18,6 +19,9 @@ from numba import jit
 
 class ParallelCheckpointCallback(Callback):
     """
+    UPDATE: I (SHH) recommend NOT running old-style Keras in parallel AT ALL;
+    thus this would not get called.
+
     Keras & HDF5 don't play nice when checkpointing data-parallel models,
     so we use the 'serial part' as per @fchollet's remarks in
     https://github.com/keras-team/keras/issues/8649#issuecomment-348829198
@@ -47,13 +51,14 @@ center_loss_hist = []
 size_loss_hist = []
 angle_loss_hist = []
 noobj_loss_hist = []
-class_loss_hist = []
+rings_loss_hist = []
 
 global_count = 0                	       # global_count is handy when nb_epoch = 1
 n_epochs_per_plot = 1
 class MyProgressCallback(Callback):      # Callbacks essentially get inserted into code at model.fit()
     """
-    This is a callback routine for visualizing progress of training
+    This is a callback routine for visualizing progress of training and
+    printing various measurments and diagnostics
     """
     def __init__(self, X_val=None, Y_val=None, val_file_list=None,
         log_dir="./logs", use_tb=False, pred_shape=[3,3,4,6]):
@@ -106,6 +111,10 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
 
 
     def on_epoch_end(self, epoch, logs={}):
+        """
+        Here's where most of the diagnostics & viz happens
+        This is really long! ;-)
+        """
         global global_count                 # we use global_count instead of epoch # b/c of "Outer" loop
         global_count = global_count+1
 
@@ -133,26 +142,30 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
 
             # detailed loss analysis, component by component
             my_val_loss, loss_parts = models.my_loss(Y_val, Y_pred)
-            [center_loss, size_loss, angle_loss, noobj_loss, class_loss] = loss_parts
+            [center_loss, size_loss, angle_loss, noobj_loss, rings_loss] = loss_parts
             my_val_loss_hist.append(my_val_loss)
             center_loss_hist.append(center_loss)
             size_loss_hist.append(size_loss)
             angle_loss_hist.append(angle_loss)
             noobj_loss_hist.append(noobj_loss)
-            class_loss_hist.append(class_loss)
+            rings_loss_hist.append(rings_loss)
 
-            loss_dat_str = f'{epoch} {train_loss_total} {my_val_loss} {center_loss} {size_loss} {angle_loss} {noobj_loss} {class_loss}\n'
+            loss_dat_str = f'{epoch} {train_loss_total} {my_val_loss} {center_loss} {size_loss} {angle_loss} {noobj_loss} {rings_loss}\n'
             self.loss_file.write(loss_dat_str)
 
-
+            if cf.loss_type != 'same':  # convert from logits
+                Y_pred[:, cf.ind_noobj::cf.vars_per_pred] = 1.0/(1.0 + np.exp(-Y_pred[:, cf.ind_noobj::cf.vars_per_pred])) # sigmoid
 
             # calc some errors.  first transform back into regular 'world' values via de-normalization
             Yv = denorm_Y(Y_val)     # t is for true
             Yp = denorm_Y(Y_pred)
 
             # A few metrics
-            ring_miscounts, total_obj, pix_err, ipem = diagnostics.calc_errors(Yp, Yv)
-            class_acc = (total_obj-ring_miscounts)*1.0/total_obj*100
+            ring_miscounts, ring_truecounts, total_obj, false_obj_pos, false_obj_neg, true_obj_pos, true_obj_neg, pix_err, ipem = diagnostics.calc_errors(Yp, Yv)
+            mistakes = ring_miscounts + false_obj_pos + false_obj_neg
+            class_acc = (total_obj-mistakes)*1.0/total_obj*100  # accuracy is based on lack of any mistakes
+            #print("Diagnostics: ring_miscounts, total_(true)_obj, false_obj_pos, false_obj_neg, true_obj_pos, true_obj_neg, ipem = \n",
+            #    "             ",ring_miscounts, total_obj, false_obj_pos, false_obj_neg, true_obj_pos, true_obj_neg, ipem) # skip pix_err as it's an array
             acc_hist.append( class_acc )
 
             # Plot Progress:  Centroids & History
@@ -188,21 +201,21 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             #  Plot history: Loss vs. Time graph
             if not ([] == val_loss_hist):
                 ymin = np.min(train_loss_hist + val_loss_hist + center_loss_hist + size_loss_hist
-                    + noobj_loss_hist + angle_loss_hist + class_loss_hist) # '+' here concatenates the lists
+                    + noobj_loss_hist + angle_loss_hist + rings_loss_hist) # '+' here concatenates the lists
                 print("ymin = ",ymin)
                 ymax = np.max(train_loss_hist + val_loss_hist)
                 ax = plt.subplot(132, ylim=[5e-6, 0.1])    # cut the top off at 0.1 if necessary, so we can better see low-error features
 
-                print('    Losses: Epoch Train:total Val:total   center     size       angle      noobj      class')
+                print('    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings')
                 print(f'          {epoch:3d}     {train_loss_total:.3e}   {val_loss_total:.3e}   {center_loss:.3e} '+
-                    f' {size_loss:.3e}  {angle_loss:.3e}  {noobj_loss:.3e}  {class_loss:.3e}')
+                    f' {size_loss:.3e}  {angle_loss:.3e}  {noobj_loss:.3e}  {rings_loss:.3e}')
                 ax.loglog(hist, train_loss_hist,'-',label="Train")
                 ax.loglog(hist, val_loss_hist,'-',label="Val: Total")
                 ax.loglog(hist, center_loss_hist,'-',label="Val: Center")
                 ax.loglog(hist, size_loss_hist,'-',label="Val: Size")
                 ax.loglog(hist, angle_loss_hist,'-',label="Val: Angle")
                 ax.loglog(hist, noobj_loss_hist,'-',label="Val: NoObj")
-                ax.loglog(hist, class_loss_hist,'-',label="Val: Rings")
+                ax.loglog(hist, rings_loss_hist,'-',label="Val: Rings")
 
                 ax.set_xlabel('(Global) Epoch')
                 ax.set_ylabel('Loss')
@@ -214,7 +227,7 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
                 ax = plt.subplot(133, ylim=[0,100])
                 ax.plot(hist, acc_hist,'-',color='orange', label='Acc = {:5.2f} %'.format(class_acc))
                 ax.set_xlabel('(Global) Epoch')
-                ax.set_ylabel('Class Accuracy (%)')
+                ax.set_ylabel('Accuracy (%)')
                 ax.legend(loc='lower right', fancybox=True, framealpha=0.8)
                 plt.xlim(xmin=1)
 
@@ -242,7 +255,15 @@ class MyProgressCallback(Callback):      # Callbacks essentially get inserted in
             print("        Max pixel error =",pix_err[ipem]," (index =",ipem,", file=",val_file_list[ipem],").")
             #print("              Y_pred =",Y_pred[ipem])
             #print("              Y_val =",Y_val[ipem])
-            print("        Num ring miscounts = ",ring_miscounts,' / ',total_obj,'.   = ',class_acc,' % class. accuracy',sep="")
+            print("    Ring correct counts = ",ring_truecounts,' / ',total_obj,'.   = ',100*ring_truecounts/total_obj,' % ring-class accuracy',sep="")
+
+            print("         Ring miscounts = ",ring_miscounts,' / ',total_obj,'.   = ',100*ring_miscounts/total_obj,' % ring-miscount rate',sep="")
+            print("        False positives = ",false_obj_pos,' / ',total_obj,'.   = ',100*false_obj_pos/total_obj,' % FP rate',sep="")
+            print("        False negatives = ",false_obj_neg,' / ',total_obj,'.   = ',100*false_obj_neg/total_obj,' % FN rate',sep="")
+            print("         True positives = ",true_obj_pos,' / ',total_obj,'.   = ',100*true_obj_pos/total_obj,' % TP rate',sep="")
+            print("         True negatives = ",true_obj_neg,sep="")
+            print("    Total Mistakes = ",mistakes,' / ',total_obj,'.   => ',class_acc,' % class. accuracy rate (lack of mistakes)',sep="")
+
             #print("                                                                  my_val_loss:",my_val_loss)
 
 
@@ -272,86 +293,32 @@ class AugmentOnTheFly(Callback):
         self.aug_every = aug_every
         self.orig_img_shape = orig_img_shape
 
-    def salt_n_pepa(self, img, salt_vs_pepper = 0.2, amount=0.004):
-        """
-        Adds (even more) black & white dots to image
-        modified from https://medium.com/ymedialabs-innovation/data-augmentation-techniques-in-cnn-using-tensorflow-371ae43d5be9
-        Note: operates IN PLACE on one 'image'.  img is really a numpy array
-        """
-        push_it = np.random.choice(['good','not good'])   # randomly do it or don't do it
-        if push_it != 'good':
-            return              # abort and leave image unchanged
+    def salt_n_pepa(self, img, salt_vs_pepper = 0.2, amount=0.004): # IN PLACE
+        # moved most of the code to augmentation.py
+        salt_n_pepa_inplace(img, salt_vs_pepper=salt_vs_pepper, amount=amount)
+        return
 
-        salt_color, pepper_color = np.max(img), np.min(img)
-        #print("Salt & Pepa's here, and we're in effect!")
-        num_salt = np.ceil(amount * img.size * salt_vs_pepper)
-        num_pepper = np.ceil(amount * img.size * (1.0 - salt_vs_pepper))
+    def cutout(self, img, max_regions=6, minsize=11, maxsize=75): # IN PLACE
+        # moved most of the code to augmentation.py
+        cutout_inplace(img, max_regions=max_regions, minsize=minsize, maxsize=maxsize)
+        return
 
-        # Add Salt noise
-        coords = [np.random.randint(0, i - 1, int(num_salt)) for i in img.shape[0:2]]
-        img[coords[0], coords[1], :] = salt_color
+    def blur(self, img, blur_prob=0.4):
+        if np.random.rand() < blur_prob:
+            blur_inplace(img)
+        return
 
-        # Add Pepper noise
-        coords = [np.random.randint(0, i - 1, int(num_pepper)) for i in img.shape[0:2]]
-        img[coords[0], coords[1], :] = pepper_color
+    def bp_mixup(self, img, bpmix_prob=0.3):
+        # unlike some other augmentation methods, this is not done in place,
+        # and the spectral computations can be slow compared to simply adding noise, etc.
+        if np.random.rand() < bpmix_prob:
+            img = bandpass_mixup(img)
+        return img
 
-
-    def cutout(self, img, max_regions=6, minsize=11, maxsize=75):
-        """
-        "Improved Regularization of Convolutional Neural Networks with Cutout", https://arxiv.org/abs/1708.04552
-        All we do is chop out rectangular regions from the image, i.e. "masking out contiguous sections of the input"
-        Unlike the original cutout paper, we don't cut out anything too huge, and we use random (greyscale) colors
-        Note: operates IN PLACE on one 'image'.  image is really a numpy array
-        """
-        num_regions = np.random.randint(0, high=max_regions+1)
-        if (0 == num_regions):
-            return              # abort
-        colormin, colormax = np.min(img), np.max(img)
-        for region in range(num_regions):
-            pt1 = ( np.random.randint(0,img.shape[0]-minsize), np.random.randint(0, img.shape[1]-minsize))  # upper left corner of cutout rectangle
-            rwidth, rheight = np.random.randint(minsize, maxsize), np.random.randint(minsize, maxsize)  # width & height of cutout rectangle
-            pt2 = ( min(pt1[0] + rwidth, img.shape[0]-1) , min(pt1[1] + rheight, img.shape[1]-1)  )   # keep rectangle bounded in image
-            const_value = np.random.uniform( colormin, colormax )
-            img[ pt1[0]:pt2[0], pt1[1]:pt2[1], : ] = const_value
-
-    '''def flip_image(self, img, metadata, flip_param, orig_img_shape):
-        """  TODO/NOTE:  This should not be used. Is broken.
-        does not operate in place (because the numpy 'flip' ops only return views)
-        Inputs:
-          flip_param:
-             -2:  do nothing
-             -1:  flip horizontally and vertically
-              0:  flip vertically
-              1:  flip horizontally
-           orig_img_shape:  'actual' image shape, before it was resized (or cropped).
-
-        Note that unlike in augement_data.py, here img can be operated on as a numpy array istead of via cv2
-        """
-        print("flip_image is broken.  Do not use")
-        return img, metadata
-        if (-2 == flip_param):   # -2 is my special code to do nothing
-            return img, metadata
-        #height, width, channels = img.shape  # this 'reverse' ordering of height & width is typical
-        (orig_height, orig_width) = orig_img_shape
-
-        if (flip_param in [0,-1]):  # vertical flip or both horiz & vertical flip
-            cv2.imwrite('non_flipped.png',img*255)
-            img = np.flipud(img)
-            cv2.imwrite('flipped.png',img*255)
-            # No, this needs to get re-allocated completely
-            metadata[cf.ind_cy::cf.vars_per_pred] = orig_height - metadata[cf.ind_cy::cf.vars_per_pred]
-            metadata[cf.ind_angle2::cf.vars_per_pred] *= -1   # flip the sin(2*theta) term
-        if (flip_param in [1,-1]):  # horizontal flip flip or both horiz & vertical flip
-            img = np.fliplr(img)
-            metadata[cf.ind_cx::cf.vars_per_pred] = orig_width - metadata[cf.ind_cx::cf.vars_per_pred]
-            metadata[cf.ind_angle1::cf.vars_per_pred] *= -1   # flip the cos(2*theta) term
-        return img.copy(), metadata
-    '''
-
-    @jit()
+    @jit() # jit makes it fast
     def on_epoch_begin(self, epoch, logs=None):
         # Do the augmentation at the beginning of the epoch
-        # TODO: parallelize? currently this runs in serial & hence is somewhat slow.  Added Numba jit
+        # Numba jit is actually faster than my 'parallel' implementation. Ignore numba warnings btw
         if (0 == epoch % self.aug_every):
             for i in range(self.X_orig.shape[0]): # loop over images. TODO: parallelize this
                 if ((i % 200 == 0) or (i == self.X_orig.shape[0]-1)):
@@ -359,11 +326,12 @@ class AugmentOnTheFly(Callback):
                 img = self.X_orig[i,:,:,:].copy()  # grab individual image (assume other operations occur in-place)
                 metadata = self.Y_orig[i,:].copy()
 
-                # Now do stuff to the image and metadata...
+                # Now do stuff to the image copy
                 self.cutout(img)
                 self.salt_n_pepa(img)
-                # flip vertically ('x axis' in cv2) or not at all
-                #img, metadata = self.flip_image(img, metadata, np.random.choice([-2,0]), self.orig_img_shape )
+                self.blur(img)
+                #img = self.bp_mixup(img) # this is not in-place
+
 
                 self.X[i,:,:,:] = img   # overwrite the relevant part of current dataset (this propagates 'out' to model.fit b/c pointers)
                 self.Y[i,:] = metadata

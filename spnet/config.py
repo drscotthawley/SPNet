@@ -38,5 +38,15 @@ ind_noobj = 6
 ind_rings = 7
 
 loss_type = 'same' #  'same'=mse for all, 'hybrid'(or anything !'same')=CE for noobj & mse for all others
-model_type = 'monolithic'  # anything other than 'simple'
-basemodel = 'xception'  #
+
+# model_type:   mostly defines what NOT to do
+#              'monolithic' or '<any string not on this list>': resize images to 331x331
+#              'simple': don't use functional API.  Not recommended!
+#              'compound': old interface where we reorder outputs  Not recommended!
+#               'ss': include a SelectiveSigmoid layer
+#              'big':  do not resize input images at all.
+model_type = 'monolithic'
+
+# name of a predefined Keras model
+#   'Xception' works well, 'InceptionResNetV2' seems too big & slow, 'NASNetLarge' won't fit
+basemodel = 'Xception'
