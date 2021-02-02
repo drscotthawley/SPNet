@@ -8,7 +8,7 @@ _Warning: This is "research" code, modified many times over the span of 3+ years
 
 
 
-Sample image:
+**Sample image:** *(yellow = ground truth, purple = SPNet output)*
 
 ![sample image](http://hedges.belmont.edu/~shawley/steelpan/steelpan_sample_image.png)
 
