@@ -2,6 +2,8 @@
 
 _S.H. Hawley, Oct 2017-Jan 2020._
 
+Code accompanying the paper ["ConvNets for Counting: Object Detection of Transient Phenomena in Steelpan Drums"](https://arxiv.org/abs/2102.00632) by S.H. Hawley & A.C. Morrison (2021, submitted to JASA Special Issue on ML in Acoustics). 
+
 _Warning: This is "research" code, modified many times over the span of 3+ years to support only one user (me). It is shared publicly here for the purposes of transparency and verification,  but it should not be regarded as a "package" or library maintained for general public use.  It still uses an old version of Keras (because updating to Keras 2 introduced errors that proved difficult to track down).  It is designed to run on my two desktop machines which each have >=64 GB of RAM, with one having a NVIDIA Titan X GPU running CUDA 10.2 and the other an RTX 2080Ti and CUDA 11._
 
 
@@ -119,7 +121,8 @@ Yes and no. Files exist, but I'm still working to resolve an intermittant error 
   title={ConvNets for Counting: Object Detection of Time Dependent Behavior in Steelpan Drums},
   month={Jan},
   year={2021},
-  note={Submitted to Special Issue on Machine Learning in Acoustics, Journal of the Acoustical Society of America (JASA)},
+  url={https://arxiv.org/abs/2102.00632},
+  note={\url{https://arxiv.org/abs/2102.00632}, submitted to Special Issue on Machine Learning in Acoustics, Journal of the Acoustical Society of America (JASA)},
 }
 ```
 
