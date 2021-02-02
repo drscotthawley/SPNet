@@ -1,6 +1,6 @@
 # SPNet - Object detection for [ESPI](https://en.wikipedia.org/wiki/Electronic_speckle_pattern_interferometry)  images of oscillating steelpan drums
 
-_S.H. Hawley, Oct 2017-Jan 2020._
+_S.H. Hawley, Oct 2017-Jan 2021._
 
 Code accompanying the paper ["ConvNets for Counting: Object Detection of Transient Phenomena in Steelpan Drums"](https://arxiv.org/abs/2102.00632) by S.H. Hawley & A.C. Morrison (2021, submitted to JASA Special Issue on ML in Acoustics). 
 
