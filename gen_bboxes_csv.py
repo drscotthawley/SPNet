@@ -30,7 +30,6 @@ datapath = '/home/shawley/datasets/'
 #in_filename = 'zooniverse_labeled_dataset.csv'   # input CSV filename
 #in_filename = datapath+'average_all-good-ellipses-five_or_more-072420.csv' # input CSV filename
 in_filename = datapath+'average_good_ellipses_bad_values_removed.csv' # input CSV filename
-imgpath = datapath+'zooniverse_steelpan/'                    # directory where ALL images are stored (e.g. in lecun:datasets/+this)
 
 # Outputs:
 out_filename = datapath+'zooniverse_bounding_boxes.csv'
@@ -43,6 +42,7 @@ df = pd.read_csv(in_filename, names=col_names) # no header
 df.drop_duplicates(inplace=True)  # sometimes the data from Zooniverse has duplicate rows
 df.dropna(inplace=True)           # drop rows containing NaNs
 df = df[(df[['rings']] != 0).all(axis=1)]  # drop rows where ring count is zero
+df['filename'] = [x.replace('.bmp','') for x in df['filename']]  # remove '.bmp' from filenames
 n = df.shape[0] # len(df.index) # number rows
 
 # Convert to bboxes
@@ -62,3 +62,9 @@ print("new_df = ",new_df)
 
 print("Writing to new file",out_filename)
 new_df.to_csv(out_filename, index=False)
+
+if False: # normally don't do this.
+    # one more thing: copy files over for packaging
+    imgpath = datapath+'zooniverse_steelpan/'  # directory where ALL images are stored (e.g. in lecun:datasets/+this)
+    for f in new_df['filename']:
+        os.system(f'/bin/cp {imgpath}/{f} /tmp/spnet_sample-master/images/')
