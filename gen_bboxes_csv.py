@@ -41,11 +41,11 @@ if use_andrews_raw_data:
     #in_filename = 'zooniverse_labeled_dataset.csv'   # input CSV filename
     #in_filename = datapath+'average_all-good-ellipses-five_or_more-072420.csv' # input CSV filename
     in_filename = datapath+'average_good_ellipses_bad_values_removed.csv' # input CSV filename
-    
-    
+
+
     # @achmorrison:  "The order of each row is: x, y, filename, fringe_count, rx, ry, angle"
     col_names = ['cx', 'cy', 'filename', 'rings', 'a', 'b', 'angle']
-    
+
     print("Reading metadata file",in_filename)
     df = pd.read_csv(in_filename, names=col_names) # no header
 
@@ -80,7 +80,11 @@ print("after concat, new_df = ",new_df)
 n = new_df.shape[0] # len(df.index) # number rows
 new_df['width'] = [width]*n
 new_df['height'] = [height]*n
-new_df['label'] = ['object']*n
+# two choices for labels:
+if True:
+    new_df['label'] = ['object']*n # group as all one class (called "object")
+else:  # or group by integer bins of ring counts. NOTE: this goes very poorly, training-wise!
+    new_df['label'] = df['rings'].round().astype(int).astype(str) + '_rings'
 
 new_col_names = ['filename','width', 'height', 'label', 'xmin', 'ymin', 'xmax', 'ymax']
 new_df = new_df[new_col_names]
@@ -90,9 +94,10 @@ out_filename = datapath+'zooniverse_bounding_boxes.csv'
 print("Writing to new file",out_filename)
 new_df.to_csv(out_filename, index=False)
 
-if False: # normally don't do this.
-    print("one more thing: copy files over for packaging")
+if True: # normally don't do this.
+    print("One more thing: Copy files over for packaging")
     imgpath = datapath+'zooniverse_steelpan/'  # directory where ALL images are stored (e.g. in lecun:datasets/+this)
     for f in new_df['filename']:
         os.system(f'/bin/cp {imgpath}/{f} /tmp/spnet_sample-master/images/')
     os.system(f'/bin/cp {out_filename} /tmp/spnet_sample-master/annotations.csv')
+    os.system("cd /tmp/; rm -f spnet_sample-master.zip; zip -r spnet_sample-master.zip spnet_sample-master/; scp spnet_sample-master.zip hedges.belmont.edu:public_html/")
