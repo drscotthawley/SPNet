@@ -1,0 +1,2540 @@
+Using TensorFlow backend.
+Command line ~= 
+ ./train_spnet.py -d /home/shawley/datasets/spnet_A_fake_50000 --name DatasetA_MSEloss_100ep
+args =  Namespace(batch_size=16, datapath='/home/shawley/datasets/spnet_A_fake_50000', epochs=100, fraction=1.0, freeze_fac=0.0, frozen_epochs=0, grid='6x6x2', lrmax=4e-05, name='DatasetA_MSEloss_100ep', noaugment=False, random_seed=1, weights='weights.hdf5')
+Logging will go to  ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021
+
+----------------------------
+Starting training...
+pred_grid =  [6, 6, 2]
+Loading data from /home/shawley/datasets/spnet_A_fake_50000/Train/ , fraction = 1.0
+      Check: len(img_file_list) = 40000, and len(meta_file_list) = 40000
+      Total files =  40000 , going to load total_load =  40000
+      Reading metadata file i = 0 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0036878.csv
+      Reading metadata file i = 5000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0033115.csv
+      Reading metadata file i = 10000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0032769.csv
+      Reading metadata file i = 15000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0031146.csv
+      Reading metadata file i = 20000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0011010.csv
+      Reading metadata file i = 25000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0030284.csv
+      Reading metadata file i = 30000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0020328.csv
+      Reading metadata file i = 35000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0018183.csv
+          Using annotations from metadata to setup 'true answers' Y and grid of predictors...
+      Reading images and assigning as input X...
+          First image file =  /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0036878.png
+          Resizing images to 331x331
+          img_dims =  (331, 331, 1)
+          Allocating shared storage for multiprocessing (this may take a while)
+          Parallelizing image reads across 12 processes.  (Numbers may appear out of order.)
+      Reading image file i = 0 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0036878.png
+      Reading image file i = 6000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0009448.png
+      Reading image file i = 2000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0010242.png
+      Reading image file i = 8000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0009662.png
+      Reading image file i = 4000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0005599.png
+      Reading image file i = 10000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0032769.png
+      Reading image file i = 16000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0031816.png
+      Reading image file i = 12000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0006412.png
+      Reading image file i = 18000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0018101.png
+      Reading image file i = 14000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0002887.png
+      Reading image file i = 20000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0011010.png
+      Reading image file i = 26000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0018710.png
+      Reading image file i = 22000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0020934.png
+      Reading image file i = 28000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0035599.png
+      Reading image file i = 24000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0022129.png
+      Reading image file i = 30000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0020328.png
+      Reading image file i = 36000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0034742.png
+      Reading image file i = 32000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0018306.png
+      Reading image file i = 38000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0002285.png
+      Reading image file i = 34000 / 40000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0033617.png
+Loading data from /home/shawley/datasets/spnet_A_fake_50000/Val/ , fraction = 1.0
+      Check: len(img_file_list) = 5000, and len(meta_file_list) = 5000
+      Total files =  5000 , going to load total_load =  4992
+      Reading metadata file i = 0 / 4992 : /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042500.csv
+          Using annotations from metadata to setup 'true answers' Y and grid of predictors...
+      Reading images and assigning as input X...
+          First image file =  /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042500.png
+          Resizing images to 331x331
+          img_dims =  (331, 331, 1)
+          Allocating shared storage for multiprocessing (this may take a while)
+          Parallelizing image reads across 12 processes.  (Numbers may appear out of order.)
+      Reading image file i = 0 / 4992 : /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042500.png
+      Reading image file i = 2000 / 4992 : /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043617.png
+      Reading image file i = 4000 / 4992 : /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043257.png
+Seting up NN model.  model_type =  monolithic
+Initializing blank model: Y0size = 576
+Using functional API model, cf.basemodel = Xception
+X[0].shape =  (331, 331, 1)
+WARNING:tensorflow:From /home/shawley/anaconda3/envs/keras/lib/python3.7/site-packages/tensorflow/python/framework/op_def_library.py:263: colocate_with (from tensorflow.python.framework.ops) is deprecated and will be removed in a future version.
+Instructions for updating:
+Colocations handled automatically by placer.
+2021-01-26 10:10:04.284318: I tensorflow/core/platform/cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX2 FMA
+2021-01-26 10:10:04.307050: I tensorflow/core/platform/profile_utils/cpu_utils.cc:94] CPU Frequency: 3597745000 Hz
+2021-01-26 10:10:04.307785: I tensorflow/compiler/xla/service/service.cc:150] XLA service 0x561b8a4af410 executing computations on platform Host. Devices:
+2021-01-26 10:10:04.307818: I tensorflow/compiler/xla/service/service.cc:158]   StreamExecutor device (0): <undefined>, <undefined>
+2021-01-26 10:10:04.492237: I tensorflow/compiler/xla/service/service.cc:150] XLA service 0x561b8a4b60a0 executing computations on platform CUDA. Devices:
+2021-01-26 10:10:04.492301: I tensorflow/compiler/xla/service/service.cc:158]   StreamExecutor device (0): TITAN X (Pascal), Compute Capability 6.1
+2021-01-26 10:10:04.492320: I tensorflow/compiler/xla/service/service.cc:158]   StreamExecutor device (1): TITAN X (Pascal), Compute Capability 6.1
+2021-01-26 10:10:04.492699: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1433] Found device 0 with properties: 
+name: TITAN X (Pascal) major: 6 minor: 1 memoryClockRate(GHz): 1.531
+pciBusID: 0000:01:00.0
+totalMemory: 11.91GiB freeMemory: 11.61GiB
+2021-01-26 10:10:04.492787: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1433] Found device 1 with properties: 
+name: TITAN X (Pascal) major: 6 minor: 1 memoryClockRate(GHz): 1.531
+pciBusID: 0000:02:00.0
+totalMemory: 11.91GiB freeMemory: 11.77GiB
+2021-01-26 10:10:04.495442: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1512] Adding visible gpu devices: 0, 1
+2021-01-26 10:10:04.501279: I tensorflow/core/common_runtime/gpu/gpu_device.cc:984] Device interconnect StreamExecutor with strength 1 edge matrix:
+2021-01-26 10:10:04.501328: I tensorflow/core/common_runtime/gpu/gpu_device.cc:990]      0 1 
+2021-01-26 10:10:04.501347: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1003] 0:   N Y 
+2021-01-26 10:10:04.501362: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1003] 1:   Y N 
+2021-01-26 10:10:04.501527: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1115] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 11292 MB memory) -> physical GPU (device: 0, name: TITAN X (Pascal), pci bus id: 0000:01:00.0, compute capability: 6.1)
+2021-01-26 10:10:04.502120: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1115] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:1 with 11446 MB memory) -> physical GPU (device: 1, name: TITAN X (Pascal), pci bus id: 0000:02:00.0, compute capability: 6.1)
+WARNING:tensorflow:From /home/shawley/anaconda3/envs/keras/lib/python3.7/site-packages/keras/backend/tensorflow_backend.py:3135: calling dropout (from tensorflow.python.ops.nn_ops) with keep_prob is deprecated and will be removed in a future version.
+Instructions for updating:
+Please use `rate` instead of `keep_prob`. Rate should be set to `rate = 1 - keep_prob`.
+After initial convolutions & pooling, x.shape =  (?, 165, 165, 3)
+Freezing  0 / 144  layers of base_model
+base_model.output_shape = (None, 5, 5, 2048)
+Adding regularization
+After adding l2 regularization, model.losses = [<tf.Tensor 'conv2d_1_1/add:0' shape=() dtype=float32>, <tf.Tensor 'conv2d_2_1/add:0' shape=() dtype=float32>, <tf.Tensor 'conv2d_3_1/add:0' shape=() dtype=float32>, <tf.Tensor 'block1_conv1_1/add:0' shape=() dtype=float32>, <tf.Tensor 'block1_conv2_1/add:0' shape=() dtype=float32>, <tf.Tensor 'conv2d_4_1/add:0' shape=() dtype=float32>, <tf.Tensor 'conv2d_5_1/add:0' shape=() dtype=float32>, <tf.Tensor 'conv2d_6_1/add:0' shape=() dtype=float32>, <tf.Tensor 'conv2d_7_1/add:0' shape=() dtype=float32>, <tf.Tensor 'FinalOutput_1/add:0' shape=() dtype=float32>]
+create_model_functional: Total params: 50,353,481
+create_model_functional: Trainable params: 50,298,935
+create_model_functional: Non-trainable params: 54,546
+    No weights file detected, so starting from scratch.
+Compiling the model
+custom_loss function engaged!. cf.loss_type = same
+Setting up 1Cycle LR schedule...
+Adding callback for augment on the fly
+WARNING:tensorflow:From /home/shawley/anaconda3/envs/keras/lib/python3.7/site-packages/tensorflow/python/ops/math_ops.py:3066: to_int32 (from tensorflow.python.ops.math_ops) is deprecated and will be removed in a future version.
+Instructions for updating:
+Use tf.cast instead.
+Train on 40000 samples, validate on 4992 samples
+/home/shawley/SPNet/hybrid4/spnet/callbacks.py:318: NumbaWarning: 
+Compilation is falling back to object mode WITH looplifting enabled because Internal error in pre-inference rewriting pass encountered during compilation of function "on_epoch_begin" due to: Numba's print() function implementation does not support keyword arguments.
+
+File "spnet/callbacks.py", line 325:
+    def on_epoch_begin(self, epoch, logs=None):
+        <source elided>
+                if ((i % 200 == 0) or (i == self.X_orig.shape[0]-1)):
+                    ^
+
+  @jit() # jit makes it fast
+/home/shawley/SPNet/hybrid4/spnet/callbacks.py:318: NumbaWarning: 
+Compilation is falling back to object mode WITHOUT looplifting enabled because Function "on_epoch_begin" failed type inference due to: cannot determine Numba type of <class 'numba.dispatcher.LiftedLoop'>
+
+File "spnet/callbacks.py", line 323:
+    def on_epoch_begin(self, epoch, logs=None):
+        <source elided>
+        if (0 == epoch % self.aug_every):
+            for i in range(self.X_orig.shape[0]): # loop over images. TODO: parallelize this
+            ^
+
+  @jit() # jit makes it fast
+/home/shawley/anaconda3/envs/keras/lib/python3.7/site-packages/numba/object_mode_passes.py:178: NumbaWarning: Function "on_epoch_begin" was compiled in object mode without forceobj=True, but has lifted loops.
+
+File "spnet/callbacks.py", line 319:
+    @jit() # jit makes it fast
+    def on_epoch_begin(self, epoch, logs=None):
+    ^
+
+  state.func_ir.loc))
+/home/shawley/anaconda3/envs/keras/lib/python3.7/site-packages/numba/object_mode_passes.py:187: NumbaDeprecationWarning: 
+Fall-back from the nopython compilation path to the object mode compilation path has been detected, this is deprecated behaviour.
+
+For more information visit http://numba.pydata.org/numba-doc/latest/reference/deprecation.html#deprecation-of-object-mode-fall-back-behaviour-when-using-jit
+
+File "spnet/callbacks.py", line 319:
+    @jit() # jit makes it fast
+    def on_epoch_begin(self, epoch, logs=None):
+    ^
+
+  warnings.warn(errors.NumbaDeprecationWarning(msg, state.func_ir.loc))
+/home/shawley/SPNet/hybrid4/spnet/callbacks.py:318: NumbaWarning: 
+Compilation is falling back to object mode WITHOUT looplifting enabled because Function "on_epoch_begin" failed type inference due to: non-precise type pyobject
+[1] During: typing of argument at /home/shawley/SPNet/hybrid4/spnet/callbacks.py (323)
+
+File "spnet/callbacks.py", line 323:
+    def on_epoch_begin(self, epoch, logs=None):
+        <source elided>
+        if (0 == epoch % self.aug_every):
+            for i in range(self.X_orig.shape[0]): # loop over images. TODO: parallelize this
+            ^
+
+  @jit() # jit makes it fast
+/home/shawley/anaconda3/envs/keras/lib/python3.7/site-packages/numba/object_mode_passes.py:178: NumbaWarning: Function "on_epoch_begin" was compiled in object mode without forceobj=True.
+
+File "spnet/callbacks.py", line 323:
+    def on_epoch_begin(self, epoch, logs=None):
+        <source elided>
+        if (0 == epoch % self.aug_every):
+            for i in range(self.X_orig.shape[0]): # loop over images. TODO: parallelize this
+            ^
+
+  state.func_ir.loc))
+/home/shawley/anaconda3/envs/keras/lib/python3.7/site-packages/numba/object_mode_passes.py:187: NumbaDeprecationWarning: 
+Fall-back from the nopython compilation path to the object mode compilation path has been detected, this is deprecated behaviour.
+
+For more information visit http://numba.pydata.org/numba-doc/latest/reference/deprecation.html#deprecation-of-object-mode-fall-back-behaviour-when-using-jit
+
+File "spnet/callbacks.py", line 323:
+    def on_epoch_begin(self, epoch, logs=None):
+        <source elided>
+        if (0 == epoch % self.aug_every):
+            for i in range(self.X_orig.shape[0]): # loop over images. TODO: parallelize this
+            ^
+
+  warnings.warn(errors.NumbaDeprecationWarning(msg, state.func_ir.loc))
+Epoch 1/100
+2021-01-26 10:10:49.103777: I tensorflow/stream_executor/dso_loader.cc:152] successfully opened CUDA library libcublas.so.10.0 locally
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  11.317801713943481 s.   FPS =  441.07505381101333
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  0.0010847332887351513
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+            0     2.582e-01   2.323e-01   2.971e-03  2.122e-03  1.085e-03  3.410e-03  2.331e-03
+    In whole val dataset:
+        Mean pixel error = 21.008087
+        Max pixel error = 83.40161  (index = 2160 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040273.png ).
+    Ring correct counts = 174 / 14952.   = 1.1637239165329052 % ring-class accuracy
+         Ring miscounts = 1088 / 14952.   = 7.2766185125735685 % ring-miscount rate
+        False positives = 8653 / 14952.   = 57.871856607811665 % FP rate
+        False negatives = 13690 / 14952.   = 91.55965757089352 % FN rate
+         True positives = 1262 / 14952.   = 8.440342429106474 % TP rate
+         True negatives = 335819
+    Total Mistakes = 23431 / 14952.   => -56.708132691278756 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.879505e-06
+40000/40000 [==============================] - 426s 11ms/step - loss: 0.2582 - val_loss: 0.2323
+Epoch 2/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.756377935409546 s.   FPS =  511.66529556857
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  0.0008847506251186132
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+            1     2.160e-01   2.016e-01   2.223e-03  1.741e-03  8.848e-04  2.268e-03  1.640e-03
+    In whole val dataset:
+        Mean pixel error = 16.998138
+        Max pixel error = 74.28826  (index = 2581 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0041904.png ).
+    Ring correct counts = 216 / 14952.   = 1.4446227929373996 % ring-class accuracy
+         Ring miscounts = 1150 / 14952.   = 7.691278758694489 % ring-miscount rate
+        False positives = 2148 / 14952.   = 14.36597110754414 % FP rate
+        False negatives = 13586 / 14952.   = 90.86409844836811 % FN rate
+         True positives = 1366 / 14952.   = 9.135901551631889 % TP rate
+         True negatives = 342324
+    Total Mistakes = 16884 / 14952.   => -12.921348314606742 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 4.159522e-06
+40000/40000 [==============================] - 414s 10ms/step - loss: 0.2160 - val_loss: 0.2016
+Epoch 3/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  10.028022050857544 s.   FPS =  497.8050481623253
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  0.0007196316728368402
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+            2     1.877e-01   1.726e-01   1.617e-03  1.451e-03  7.196e-04  1.487e-03  9.644e-04
+    In whole val dataset:
+        Mean pixel error = 13.191873
+        Max pixel error = 69.722565  (index = 473 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040560.png ).
+    Ring correct counts = 410 / 14952.   = 2.742108079186731 % ring-class accuracy
+         Ring miscounts = 1589 / 14952.   = 10.627340823970037 % ring-miscount rate
+        False positives = 831 / 14952.   = 5.557784911717496 % FP rate
+        False negatives = 12953 / 14952.   = 86.63055109684323 % FN rate
+         True positives = 1999 / 14952.   = 13.36944890315677 % TP rate
+         True negatives = 343641
+    Total Mistakes = 15373 / 14952.   => -2.815676832530765 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 5.439539e-06
+40000/40000 [==============================] - 415s 10ms/step - loss: 0.1877 - val_loss: 0.1726
+Epoch 4/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  10.049176931381226 s.   FPS =  496.75710101303457
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  0.000650003319606185
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+            3     1.546e-01   1.354e-01   1.256e-03  1.297e-03  6.500e-04  1.164e-03  6.663e-04
+    In whole val dataset:
+        Mean pixel error = 11.215459
+        Max pixel error = 57.483047  (index = 3361 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0044928.png ).
+    Ring correct counts = 819 / 14952.   = 5.477528089887641 % ring-class accuracy
+         Ring miscounts = 2272 / 14952.   = 15.195291599785982 % ring-miscount rate
+        False positives = 786 / 14952.   = 5.256821829855538 % FP rate
+        False negatives = 11861 / 14952.   = 79.32718031032638 % FN rate
+         True positives = 3091 / 14952.   = 20.672819689673624 % TP rate
+         True negatives = 343686
+    Total Mistakes = 14919 / 14952.   => 0.22070626003210272 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 6.719556e-06
+40000/40000 [==============================] - 415s 10ms/step - loss: 0.1546 - val_loss: 0.1354
+Epoch 5/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.781278610229492 s.   FPS =  510.3627244376056
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  0.000550982600543648
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+            4     1.152e-01   9.569e-02   1.036e-03  1.170e-03  5.647e-04  9.983e-04  5.510e-04
+    In whole val dataset:
+        Mean pixel error = 10.99666
+        Max pixel error = 62.18286  (index = 3361 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0044928.png ).
+    Ring correct counts = 1243 / 14952.   = 8.31326912787587 % ring-class accuracy
+         Ring miscounts = 3051 / 14952.   = 20.40529695024077 % ring-miscount rate
+        False positives = 814 / 14952.   = 5.444087747458534 % FP rate
+        False negatives = 10658 / 14952.   = 71.28143392188336 % FN rate
+         True positives = 4294 / 14952.   = 28.71856607811664 % TP rate
+         True negatives = 343658
+    Total Mistakes = 14523 / 14952.   => 2.8691813804173356 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 7.999573e-06
+40000/40000 [==============================] - 432s 11ms/step - loss: 0.1152 - val_loss: 0.0957
+Epoch 6/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.771052837371826 s.   FPS =  510.8968381489917
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  0.00045838148798793554
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+            5     7.819e-02   6.253e-02   8.259e-04  9.932e-04  4.818e-04  8.974e-04  4.584e-04
+    In whole val dataset:
+        Mean pixel error = 12.366967
+        Max pixel error = 57.02847  (index = 3559 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0041981.png ).
+    Ring correct counts = 1626 / 14952.   = 10.874799357945426 % ring-class accuracy
+         Ring miscounts = 3500 / 14952.   = 23.408239700374533 % ring-miscount rate
+        False positives = 698 / 14952.   = 4.668271803103264 % FP rate
+        False negatives = 9826 / 14952.   = 65.71696094168004 % FN rate
+         True positives = 5126 / 14952.   = 34.28303905831996 % TP rate
+         True negatives = 343774
+    Total Mistakes = 14024 / 14952.   => 6.206527554842162 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 9.279591e-06
+40000/40000 [==============================] - 415s 10ms/step - loss: 0.0782 - val_loss: 0.0625
+Epoch 7/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.997705221176147 s.   FPS =  499.31458165284175
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  0.0003629685961641371
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+            6     4.992e-02   3.902e-02   6.784e-04  8.024e-04  3.871e-04  7.864e-04  3.630e-04
+    In whole val dataset:
+        Mean pixel error = 10.470687
+        Max pixel error = 54.061733  (index = 3559 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0041981.png ).
+    Ring correct counts = 2349 / 14952.   = 15.71027287319422 % ring-class accuracy
+         Ring miscounts = 4090 / 14952.   = 27.354200107009095 % ring-miscount rate
+        False positives = 779 / 14952.   = 5.2100053504547885 % FP rate
+        False negatives = 8513 / 14952.   = 56.93552701979668 % FN rate
+         True positives = 6439 / 14952.   = 43.06447298020332 % TP rate
+         True negatives = 343693
+    Total Mistakes = 13382 / 14952.   => 10.500267522739433 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.0559607e-05
+40000/40000 [==============================] - 414s 10ms/step - loss: 0.0499 - val_loss: 0.0390
+Epoch 8/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  10.007161378860474 s.   FPS =  498.84275980052644
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  0.0002880726824514568
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+            7     3.063e-02   2.352e-02   5.528e-04  5.955e-04  2.881e-04  6.877e-04  3.203e-04
+    In whole val dataset:
+        Mean pixel error = 11.913371
+        Max pixel error = 53.554752  (index = 3559 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0041981.png ).
+    Ring correct counts = 2903 / 14952.   = 19.415462814339218 % ring-class accuracy
+         Ring miscounts = 4667 / 14952.   = 31.213215623327983 % ring-miscount rate
+        False positives = 790 / 14952.   = 5.283574103798823 % FP rate
+        False negatives = 7382 / 14952.   = 49.371321562332795 % FN rate
+         True positives = 7570 / 14952.   = 50.628678437667205 % TP rate
+         True negatives = 343682
+    Total Mistakes = 12839 / 14952.   => 14.131888710540396 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.1839625e-05
+40000/40000 [==============================] - 413s 10ms/step - loss: 0.0306 - val_loss: 0.0235
+Epoch 9/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.810499429702759 s.   FPS =  508.842596217474
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  0.00023974767827894539
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+            8     1.826e-02   1.389e-02   4.304e-04  4.305e-04  2.397e-04  5.924e-04  2.850e-04
+    In whole val dataset:
+        Mean pixel error = 9.34917
+        Max pixel error = 54.731983  (index = 3361 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0044928.png ).
+    Ring correct counts = 3482 / 14952.   = 23.28785446762975 % ring-class accuracy
+         Ring miscounts = 5358 / 14952.   = 35.834670947030496 % ring-miscount rate
+        False positives = 774 / 14952.   = 5.176565008025682 % FP rate
+        False negatives = 6112 / 14952.   = 40.877474585339755 % FN rate
+         True positives = 8840 / 14952.   = 59.122525414660245 % TP rate
+         True negatives = 343698
+    Total Mistakes = 12244 / 14952.   => 18.111289459604066 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.3119641e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 0.0183 - val_loss: 0.0139
+Epoch 10/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.634175062179565 s.   FPS =  518.1554173327058
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  0.0001953205355675891
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+            9     1.076e-02   8.151e-03   3.086e-04  3.058e-04  1.953e-04  4.959e-04  2.042e-04
+    In whole val dataset:
+        Mean pixel error = 7.9371543
+        Max pixel error = 53.694584  (index = 3361 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0044928.png ).
+    Ring correct counts = 4805 / 14952.   = 32.136169074371324 % ring-class accuracy
+         Ring miscounts = 5636 / 14952.   = 37.693953986088815 % ring-miscount rate
+        False positives = 843 / 14952.   = 5.638041733547351 % FP rate
+        False negatives = 4511 / 14952.   = 30.16987693953986 % FN rate
+         True positives = 10441 / 14952.   = 69.83012306046014 % TP rate
+         True negatives = 343629
+    Total Mistakes = 10990 / 14952.   => 26.498127340823967 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 1.43996585e-05
+40000/40000 [==============================] - 414s 10ms/step - loss: 0.0108 - val_loss: 0.0082
+Epoch 11/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.812347412109375 s.   FPS =  508.74676469764967
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  0.00016485863307025284
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           10     6.465e-03   4.995e-03   2.235e-04  2.207e-04  1.649e-04  3.991e-04  1.863e-04
+    In whole val dataset:
+        Mean pixel error = 8.568546
+        Max pixel error = 46.234898  (index = 3559 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0041981.png ).
+    Ring correct counts = 5338 / 14952.   = 35.70090957731407 % ring-class accuracy
+         Ring miscounts = 6350 / 14952.   = 42.469234884965225 % ring-miscount rate
+        False positives = 674 / 14952.   = 4.5077581594435525 % FP rate
+        False negatives = 3264 / 14952.   = 21.829855537720707 % FN rate
+         True positives = 11688 / 14952.   = 78.1701444622793 % TP rate
+         True negatives = 343798
+    Total Mistakes = 10288 / 14952.   => 31.193151417870517 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.5679676e-05
+40000/40000 [==============================] - 413s 10ms/step - loss: 0.0065 - val_loss: 0.0050
+Epoch 12/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.777964115142822 s.   FPS =  510.53572514845376
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  0.00014214486873243004
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           11     4.132e-03   3.356e-03   1.840e-04  2.008e-04  1.473e-04  3.478e-04  1.421e-04
+    In whole val dataset:
+        Mean pixel error = 6.768054
+        Max pixel error = 50.60382  (index = 3559 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0041981.png ).
+    Ring correct counts = 6702 / 14952.   = 44.82343499197432 % ring-class accuracy
+         Ring miscounts = 5769 / 14952.   = 38.58346709470305 % ring-miscount rate
+        False positives = 647 / 14952.   = 4.327180310326378 % FP rate
+        False negatives = 2481 / 14952.   = 16.593097913322634 % FN rate
+         True positives = 12471 / 14952.   = 83.40690208667736 % TP rate
+         True negatives = 343825
+    Total Mistakes = 8897 / 14952.   => 40.49625468164794 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.6959693e-05
+40000/40000 [==============================] - 413s 10ms/step - loss: 0.0041 - val_loss: 0.0034
+Epoch 13/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.743705749511719 s.   FPS =  512.3307423615662
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  0.00013642816338688135
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           12     2.924e-03   2.543e-03   1.611e-04  1.595e-04  1.364e-04  3.020e-04  1.845e-04
+    In whole val dataset:
+        Mean pixel error = 7.325608
+        Max pixel error = 47.228382  (index = 3361 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0044928.png ).
+    Ring correct counts = 5978 / 14952.   = 39.9812734082397 % ring-class accuracy
+         Ring miscounts = 7127 / 14952.   = 47.66586409844837 % ring-miscount rate
+        False positives = 646 / 14952.   = 4.320492241840556 % FP rate
+        False negatives = 1847 / 14952.   = 12.352862493311932 % FN rate
+         True positives = 13105 / 14952.   = 87.64713750668807 % TP rate
+         True negatives = 343826
+    Total Mistakes = 9620 / 14952.   => 35.66078116639914 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.823971e-05
+40000/40000 [==============================] - 413s 10ms/step - loss: 0.0029 - val_loss: 0.0025
+Epoch 14/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.757102727890015 s.   FPS =  511.62728724078175
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  0.00013184065755922347
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           13     2.277e-03   2.025e-03   1.318e-04  1.420e-04  1.373e-04  2.705e-04  1.380e-04
+    In whole val dataset:
+        Mean pixel error = 5.4586706
+        Max pixel error = 45.872086  (index = 3559 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0041981.png ).
+    Ring correct counts = 7276 / 14952.   = 48.66238630283574 % ring-class accuracy
+         Ring miscounts = 6142 / 14952.   = 41.07811663991439 % ring-miscount rate
+        False positives = 574 / 14952.   = 3.838951310861423 % FP rate
+        False negatives = 1534 / 14952.   = 10.259497057249867 % FN rate
+         True positives = 13418 / 14952.   = 89.74050294275014 % TP rate
+         True negatives = 343898
+    Total Mistakes = 8250 / 14952.   => 44.823434991974324 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.9519726e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 0.0023 - val_loss: 0.0020
+Epoch 15/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.777477025985718 s.   FPS =  510.56115874603455
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  0.00011938766692765057
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           14     1.892e-03   1.695e-03   1.238e-04  1.229e-04  1.194e-04  2.296e-04  1.241e-04
+    In whole val dataset:
+        Mean pixel error = 6.3036876
+        Max pixel error = 41.581356  (index = 3361 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0044928.png ).
+    Ring correct counts = 7704 / 14952.   = 51.52487961476726 % ring-class accuracy
+         Ring miscounts = 6057 / 14952.   = 40.509630818619584 % ring-miscount rate
+        False positives = 673 / 14952.   = 4.5010700909577315 % FP rate
+        False negatives = 1191 / 14952.   = 7.965489566613162 % FN rate
+         True positives = 13761 / 14952.   = 92.03451043338684 % TP rate
+         True negatives = 343799
+    Total Mistakes = 7921 / 14952.   => 47.023809523809526 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 2.0799744e-05
+40000/40000 [==============================] - 419s 10ms/step - loss: 0.0019 - val_loss: 0.0017
+Epoch 16/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.812508583068848 s.   FPS =  508.7384085058053
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  0.00010632407065713778
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           15     1.636e-03   1.498e-03   1.352e-04  1.154e-04  1.193e-04  2.093e-04  1.063e-04
+    In whole val dataset:
+        Mean pixel error = 7.2530417
+        Max pixel error = 42.843277  (index = 701 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043939.png ).
+    Ring correct counts = 8089 / 14952.   = 54.09978598180845 % ring-class accuracy
+         Ring miscounts = 5787 / 14952.   = 38.703852327447834 % ring-miscount rate
+        False positives = 649 / 14952.   = 4.34055644729802 % FP rate
+        False negatives = 1076 / 14952.   = 7.196361690743713 % FN rate
+         True positives = 13876 / 14952.   = 92.80363830925629 % TP rate
+         True negatives = 343823
+    Total Mistakes = 7512 / 14952.   => 49.75922953451043 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.2079761e-05
+40000/40000 [==============================] - 417s 10ms/step - loss: 0.0016 - val_loss: 0.0015
+Epoch 17/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.88805627822876 s.   FPS =  504.8514955351987
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  0.00010234200453851372
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           16     1.434e-03   1.340e-03   1.158e-04  1.023e-04  1.146e-04  1.977e-04  1.095e-04
+    In whole val dataset:
+        Mean pixel error = 4.968638
+        Max pixel error = 41.847027  (index = 3559 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0041981.png ).
+    Ring correct counts = 7858 / 14952.   = 52.554842161583736 % ring-class accuracy
+         Ring miscounts = 5936 / 14952.   = 39.70037453183521 % ring-miscount rate
+        False positives = 452 / 14952.   = 3.0230069555912253 % FP rate
+        False negatives = 1158 / 14952.   = 7.744783306581059 % FN rate
+         True positives = 13794 / 14952.   = 92.25521669341894 % TP rate
+         True negatives = 344020
+    Total Mistakes = 7546 / 14952.   => 49.53183520599251 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.3359778e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 0.0014 - val_loss: 0.0013
+Epoch 18/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.760353803634644 s.   FPS =  511.4568693340847
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  7.842317427275702e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           17     1.270e-03   1.157e-03   1.026e-04  9.739e-05  1.077e-04  1.651e-04  7.842e-05
+    In whole val dataset:
+        Mean pixel error = 5.0885367
+        Max pixel error = 34.87347  (index = 3418 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042297.png ).
+    Ring correct counts = 9421 / 14952.   = 63.00829320492242 % ring-class accuracy
+         Ring miscounts = 4672 / 14952.   = 31.24665596575709 % ring-miscount rate
+        False positives = 557 / 14952.   = 3.7252541466024613 % FP rate
+        False negatives = 859 / 14952.   = 5.745050829320492 % FN rate
+         True positives = 14093 / 14952.   = 94.25494917067951 % TP rate
+         True negatives = 343915
+    Total Mistakes = 6088 / 14952.   => 59.28303905831995 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.4639796e-05
+40000/40000 [==============================] - 417s 10ms/step - loss: 0.0013 - val_loss: 0.0012
+Epoch 19/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  10.041341066360474 s.   FPS =  497.14475058752004
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  7.842317427275702e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           18     1.133e-03   1.140e-03   9.863e-05  1.081e-04  9.844e-05  1.542e-04  1.492e-04
+    In whole val dataset:
+        Mean pixel error = 5.064872
+        Max pixel error = 38.537636  (index = 3361 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0044928.png ).
+    Ring correct counts = 6819 / 14952.   = 45.60593900481541 % ring-class accuracy
+         Ring miscounts = 7356 / 14952.   = 49.19743178170145 % ring-miscount rate
+        False positives = 596 / 14952.   = 3.9860888175494917 % FP rate
+        False negatives = 777 / 14952.   = 5.196629213483146 % FN rate
+         True positives = 14175 / 14952.   = 94.80337078651685 % TP rate
+         True negatives = 343876
+    Total Mistakes = 8729 / 14952.   => 41.61985018726592 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.5919811e-05
+40000/40000 [==============================] - 416s 10ms/step - loss: 0.0011 - val_loss: 0.0011
+Epoch 20/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.956453561782837 s.   FPS =  501.38334588948914
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  7.842317427275702e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           19     1.011e-03   1.010e-03   9.470e-05  1.111e-04  9.077e-05  1.482e-04  9.682e-05
+    In whole val dataset:
+        Mean pixel error = 8.855803
+        Max pixel error = 47.032413  (index = 4484 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040214.png ).
+    Ring correct counts = 8537 / 14952.   = 57.09604066345639 % ring-class accuracy
+         Ring miscounts = 5730 / 14952.   = 38.32263242375602 % ring-miscount rate
+        False positives = 584 / 14952.   = 3.905831995719636 % FP rate
+        False negatives = 685 / 14952.   = 4.581326912787587 % FN rate
+         True positives = 14267 / 14952.   = 95.41867308721241 % TP rate
+         True negatives = 343888
+    Total Mistakes = 6999 / 14952.   => 53.19020866773676 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 2.7199829e-05
+40000/40000 [==============================] - 418s 10ms/step - loss: 0.0010 - val_loss: 0.0010
+Epoch 21/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.77453351020813 s.   FPS =  510.71490979969076
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  6.308830779744312e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           20     9.174e-04   8.666e-04   8.632e-05  7.927e-05  8.209e-05  1.337e-04  6.309e-05
+    In whole val dataset:
+        Mean pixel error = 5.2517166
+        Max pixel error = 43.6512  (index = 4484 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040214.png ).
+    Ring correct counts = 10248 / 14952.   = 68.53932584269663 % ring-class accuracy
+         Ring miscounts = 4023 / 14952.   = 26.90609951845907 % ring-miscount rate
+        False positives = 633 / 14952.   = 4.23354735152488 % FP rate
+        False negatives = 681 / 14952.   = 4.554574638844302 % FN rate
+         True positives = 14271 / 14952.   = 95.4454253611557 % TP rate
+         True negatives = 343839
+    Total Mistakes = 5337 / 14952.   => 64.30577849117175 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.8479846e-05
+40000/40000 [==============================] - 417s 10ms/step - loss: 9.1738e-04 - val_loss: 8.6662e-04
+Epoch 22/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.77515983581543 s.   FPS =  510.68218666969494
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  6.308830779744312e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           21     8.448e-04   8.125e-04   8.565e-05  7.164e-05  8.195e-05  1.245e-04  6.516e-05
+    In whole val dataset:
+        Mean pixel error = 5.1223187
+        Max pixel error = 44.374985  (index = 3418 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042297.png ).
+    Ring correct counts = 10198 / 14952.   = 68.20492241840556 % ring-class accuracy
+         Ring miscounts = 4116 / 14952.   = 27.528089887640448 % ring-miscount rate
+        False positives = 599 / 14952.   = 4.006153023006956 % FP rate
+        False negatives = 638 / 14952.   = 4.266987693953986 % FN rate
+         True positives = 14314 / 14952.   = 95.73301230604602 % TP rate
+         True negatives = 343873
+    Total Mistakes = 5353 / 14952.   => 64.19876939539861 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.9759864e-05
+40000/40000 [==============================] - 416s 10ms/step - loss: 8.4477e-04 - val_loss: 8.1252e-04
+Epoch 23/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.725188970565796 s.   FPS =  513.3062211036474
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  6.308830779744312e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           22     7.882e-04   7.886e-04   8.051e-05  7.399e-05  7.928e-05  1.218e-04  8.076e-05
+    In whole val dataset:
+        Mean pixel error = 3.9397144
+        Max pixel error = 39.17646  (index = 3361 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0044928.png ).
+    Ring correct counts = 9231 / 14952.   = 61.73756019261637 % ring-class accuracy
+         Ring miscounts = 5097 / 14952.   = 34.08908507223114 % ring-miscount rate
+        False positives = 559 / 14952.   = 3.738630283574104 % FP rate
+        False negatives = 624 / 14952.   = 4.173354735152488 % FN rate
+         True positives = 14328 / 14952.   = 95.82664526484751 % TP rate
+         True negatives = 343913
+    Total Mistakes = 6280 / 14952.   => 57.998929909042275 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.103988e-05
+40000/40000 [==============================] - 417s 10ms/step - loss: 7.8815e-04 - val_loss: 7.8857e-04
+Epoch 24/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.738750696182251 s.   FPS =  512.5914150320067
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  5.8638986956793815e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           23     7.452e-04   7.200e-04   7.396e-05  6.816e-05  7.377e-05  1.138e-04  5.864e-05
+    In whole val dataset:
+        Mean pixel error = 4.829966
+        Max pixel error = 40.869766  (index = 3642 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043590.png ).
+    Ring correct counts = 10724 / 14952.   = 71.72284644194757 % ring-class accuracy
+         Ring miscounts = 3666 / 14952.   = 24.518459069020867 % ring-miscount rate
+        False positives = 517 / 14952.   = 3.4577314071696095 % FP rate
+        False negatives = 562 / 14952.   = 3.758694489031568 % FN rate
+         True positives = 14390 / 14952.   = 96.24130551096843 % TP rate
+         True negatives = 343955
+    Total Mistakes = 4745 / 14952.   => 68.26511503477796 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.23199e-05
+40000/40000 [==============================] - 417s 10ms/step - loss: 7.4519e-04 - val_loss: 7.2004e-04
+Epoch 25/100
+ ./train_spnet.py -d /home/shawley/datasets/spnet_A_fake_50000 -f 0.1 --name noobj_baseline -e 5
+args =  Namespace(batch_size=16, datapath='/home/shawley/datasets/spnet_A_fake_50000', epochs=5, fraction=0.1, freeze_fac=0.0, frozen_epochs=0, grid='6x6x2', lrmax=4e-05, name='noobj_baseline', noaugment=False, random_seed=1, weights='weights.hdf5')
+Logging will go to  ./logs/noobj_baseline_Tue_Jan_26_13:05:32_2021
+
+----------------------------
+Starting training...
+pred_grid =  [6, 6, 2]
+Loading data from /home/shawley/datasets/spnet_A_fake_50000/Train/ , fraction = 0.1
+      Total files =  40000 , going to load total_load =  4000
+      Reading metadata file i = 0 / 4000 : /home/shawley/datasets/spnet_A_fake_50000/Train/steelpan_0036878.csv
+  File "./train_spnet.py", line 128, in <module>
+    random_seed=args.random_seed)
+  File "./train_spnet.py", line 49, in train_network
+    load_frac=fraction, set_means_ranges=True, batch_size=batch_size, pred_grid=pred_grid)
+  File "/home/shawley/SPNet/hybrid4/spnet/utils.py", line 485, in build_dataset
+    Y, pred_shape = build_Y(total_load, meta_file_list, img_file_list, pred_grid=pred_grid, set_means_ranges=set_means_ranges)
+  File "/home/shawley/SPNet/hybrid4/spnet/utils.py", line 306, in build_Y
+    one_true_arr = np.array(parse_meta_file(meta_filename)).tolist()     # one_true_arr is a list of the true info on all antinodes in this particular file
+  File "/home/shawley/SPNet/hybrid4/spnet/utils.py", line 263, in parse_meta_file
+    df = pd.read_csv(meta_filename,header=None,names=col_names)  # read metadata file
+  File "/home/shawley/anaconda3/envs/keras/lib/python3.7/site-packages/pandas/io/parsers.py", line 685, in parser_f
+    return _read(filepath_or_buffer, kwds)
+  File "/home/shawley/anaconda3/envs/keras/lib/python3.7/site-packages/pandas/io/parsers.py", line 463, in _read
+    data = parser.read(nrows)
+  File "/home/shawley/anaconda3/envs/keras/lib/python3.7/site-packages/pandas/io/parsers.py", line 1154, in read
+    ret = self._engine.read(nrows)
+  File "/home/shawley/anaconda3/envs/keras/lib/python3.7/site-packages/pandas/io/parsers.py", line 2059, in read
+    data = self._reader.read(nrows)
+  File "pandas/_libs/parsers.pyx", line 881, in pandas._libs.parsers.TextReader.read
+  File "pandas/_libs/parsers.pyx", line 896, in pandas._libs.parsers.TextReader._read_low_memory
+  File "pandas/_libs/parsers.pyx", line 973, in pandas._libs.parsers.TextReader._read_rows
+  File "pandas/_libs/parsers.pyx", line 1105, in pandas._libs.parsers.TextReader._convert_column_data
+  File "pandas/_libs/parsers.pyx", line 1151, in pandas._libs.parsers.TextReader._convert_tokens
+  File "pandas/_libs/parsers.pyx", line 1210, in pandas._libs.parsers.TextReader._convert_with_dtype
+  File "/home/shawley/anaconda3/envs/keras/lib/python3.7/site-packages/pandas/core/dtypes/common.py", line 1743, in is_extension_array_dtype
+    def is_extension_array_dtype(arr_or_dtype):
+KeyboardInterrupt
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.620997190475464 s.   FPS =  518.8651343690184
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  5.8638986956793815e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           24     7.075e-04   7.804e-04   8.256e-05  1.056e-04  9.797e-05  1.201e-04  6.051e-05
+    In whole val dataset:
+        Mean pixel error = 4.4194016
+        Max pixel error = 42.21871  (index = 1355 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0041734.png ).
+    Ring correct counts = 10519 / 14952.   = 70.3517924023542 % ring-class accuracy
+         Ring miscounts = 3771 / 14952.   = 25.220706260032102 % ring-miscount rate
+        False positives = 572 / 14952.   = 3.8255751738897805 % FP rate
+        False negatives = 662 / 14952.   = 4.427501337613697 % FN rate
+         True positives = 14290 / 14952.   = 95.57249866238631 % TP rate
+         True negatives = 343900
+    Total Mistakes = 5005 / 14952.   => 66.52621722846442 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 3.3599914e-05
+40000/40000 [==============================] - 420s 10ms/step - loss: 7.0749e-04 - val_loss: 7.8037e-04
+Epoch 26/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.535944700241089 s.   FPS =  523.4929686488001
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  5.362681986298412e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           25     6.783e-04   6.737e-04   6.810e-05  6.862e-05  7.213e-05  1.106e-04  5.363e-05
+    In whole val dataset:
+        Mean pixel error = 5.9026
+        Max pixel error = 42.35295  (index = 3418 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042297.png ).
+    Ring correct counts = 10902 / 14952.   = 72.91332263242376 % ring-class accuracy
+         Ring miscounts = 3494 / 14952.   = 23.368111289459605 % ring-miscount rate
+        False positives = 534 / 14952.   = 3.5714285714285716 % FP rate
+        False negatives = 556 / 14952.   = 3.71856607811664 % FN rate
+         True positives = 14396 / 14952.   = 96.28143392188336 % TP rate
+         True negatives = 343938
+    Total Mistakes = 4584 / 14952.   => 69.34189406099517 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.4879933e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 6.7832e-04 - val_loss: 6.7371e-04
+Epoch 27/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.774003028869629 s.   FPS =  510.7426287115985
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  5.362681986298412e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           26     6.646e-04   6.901e-04   7.959e-05  6.882e-05  7.161e-05  1.169e-04  6.368e-05
+    In whole val dataset:
+        Mean pixel error = 6.049885
+        Max pixel error = 41.495663  (index = 4484 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040214.png ).
+    Ring correct counts = 10279 / 14952.   = 68.74665596575709 % ring-class accuracy
+         Ring miscounts = 4018 / 14952.   = 26.872659176029963 % ring-miscount rate
+        False positives = 608 / 14952.   = 4.066345639379347 % FP rate
+        False negatives = 655 / 14952.   = 4.380684858212948 % FN rate
+         True positives = 14297 / 14952.   = 95.61931514178706 % TP rate
+         True negatives = 343864
+    Total Mistakes = 5281 / 14952.   => 64.68031032637775 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.615995e-05
+40000/40000 [==============================] - 418s 10ms/step - loss: 6.6461e-04 - val_loss: 6.9009e-04
+Epoch 28/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.712287664413452 s.   FPS =  513.9880708322779
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  5.362681986298412e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           27     6.418e-04   6.831e-04   8.604e-05  6.982e-05  7.464e-05  1.179e-04  5.490e-05
+    In whole val dataset:
+        Mean pixel error = 6.0962577
+        Max pixel error = 43.93118  (index = 701 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043939.png ).
+    Ring correct counts = 10855 / 14952.   = 72.59898341359016 % ring-class accuracy
+         Ring miscounts = 3459 / 14952.   = 23.13402889245586 % ring-miscount rate
+        False positives = 576 / 14952.   = 3.852327447833066 % FP rate
+        False negatives = 638 / 14952.   = 4.266987693953986 % FN rate
+         True positives = 14314 / 14952.   = 95.73301230604602 % TP rate
+         True negatives = 343896
+    Total Mistakes = 4673 / 14952.   => 68.74665596575709 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.7439964e-05
+40000/40000 [==============================] - 418s 10ms/step - loss: 6.4176e-04 - val_loss: 6.8308e-04
+Epoch 29/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.799007415771484 s.   FPS =  509.4393532109574
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  5.362681986298412e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           28     6.270e-04   6.860e-04   7.514e-05  7.774e-05  7.942e-05  1.236e-04  5.725e-05
+    In whole val dataset:
+        Mean pixel error = 6.866367
+        Max pixel error = 46.76645  (index = 3471 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0044246.png ).
+    Ring correct counts = 10605 / 14952.   = 70.92696629213484 % ring-class accuracy
+         Ring miscounts = 3733 / 14952.   = 24.966559657570894 % ring-miscount rate
+        False positives = 666 / 14952.   = 4.454253611556982 % FP rate
+        False negatives = 614 / 14952.   = 4.106474050294275 % FN rate
+         True positives = 14338 / 14952.   = 95.89352594970572 % TP rate
+         True negatives = 343806
+    Total Mistakes = 5013 / 14952.   => 66.47271268057786 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.8719983e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 6.2701e-04 - val_loss: 6.8596e-04
+Epoch 30/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.688225984573364 s.   FPS =  515.2646116996857
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  5.362681986298412e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           29     6.145e-04   6.606e-04   7.991e-05  6.213e-05  7.759e-05  1.141e-04  5.728e-05
+    In whole val dataset:
+        Mean pixel error = 4.270089
+        Max pixel error = 42.471684  (index = 3471 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0044246.png ).
+    Ring correct counts = 10639 / 14952.   = 71.15436062065275 % ring-class accuracy
+         Ring miscounts = 3696 / 14952.   = 24.719101123595507 % ring-miscount rate
+        False positives = 564 / 14952.   = 3.7720706260032104 % FP rate
+        False negatives = 617 / 14952.   = 4.126538255751739 % FN rate
+         True positives = 14335 / 14952.   = 95.87346174424826 % TP rate
+         True negatives = 343908
+    Total Mistakes = 4877 / 14952.   => 67.38228999464954 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 4e-05
+40000/40000 [==============================] - 417s 10ms/step - loss: 6.1452e-04 - val_loss: 6.6063e-04
+Epoch 31/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.76177978515625 s.   FPS =  511.3821567242102
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  5.362681986298412e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           30     5.992e-04   6.863e-04   8.115e-05  7.517e-05  6.689e-05  1.140e-04  8.983e-05
+    In whole val dataset:
+        Mean pixel error = 5.3977146
+        Max pixel error = 47.338783  (index = 3471 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0044246.png ).
+    Ring correct counts = 9002 / 14952.   = 60.2059925093633 % ring-class accuracy
+         Ring miscounts = 5329 / 14952.   = 35.64071696094168 % ring-miscount rate
+        False positives = 557 / 14952.   = 3.7252541466024613 % FP rate
+        False negatives = 621 / 14952.   = 4.153290529695024 % FN rate
+         True positives = 14331 / 14952.   = 95.84670947030497 % TP rate
+         True negatives = 343915
+    Total Mistakes = 6507 / 14952.   => 56.48073836276083 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.9979877e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 5.9921e-04 - val_loss: 6.8632e-04
+Epoch 32/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.872288465499878 s.   FPS =  505.65783378851387
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  4.995790004613809e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           31     5.828e-04   6.191e-04   7.077e-05  6.717e-05  6.952e-05  1.127e-04  4.996e-05
+    In whole val dataset:
+        Mean pixel error = 5.9996624
+        Max pixel error = 40.254284  (index = 3471 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0044246.png ).
+    Ring correct counts = 11206 / 14952.   = 74.94649545211342 % ring-class accuracy
+         Ring miscounts = 3127 / 14952.   = 20.913590155163188 % ring-miscount rate
+        False positives = 607 / 14952.   = 4.059657570893526 % FP rate
+        False negatives = 619 / 14952.   = 4.139914392723382 % FN rate
+         True positives = 14333 / 14952.   = 95.86008560727662 % TP rate
+         True negatives = 343865
+    Total Mistakes = 4353 / 14952.   => 70.8868378812199 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.9919516e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 5.8281e-04 - val_loss: 6.1908e-04
+Epoch 33/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.790984869003296 s.   FPS =  509.85677812697674
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  4.6397959522437304e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           32     5.609e-04   5.996e-04   7.085e-05  5.975e-05  6.734e-05  1.156e-04  4.640e-05
+    In whole val dataset:
+        Mean pixel error = 5.395364
+        Max pixel error = 40.4232  (index = 3642 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043590.png ).
+    Ring correct counts = 11414 / 14952.   = 76.33761369716426 % ring-class accuracy
+         Ring miscounts = 2943 / 14952.   = 19.68298555377207 % ring-miscount rate
+        False positives = 606 / 14952.   = 4.052969502407705 % FP rate
+        False negatives = 595 / 14952.   = 3.9794007490636703 % FN rate
+         True positives = 14357 / 14952.   = 96.02059925093633 % TP rate
+         True negatives = 343866
+    Total Mistakes = 4144 / 14952.   => 72.28464419475655 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.9819042e-05
+40000/40000 [==============================] - 416s 10ms/step - loss: 5.6085e-04 - val_loss: 5.9964e-04
+Epoch 34/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.54453444480896 s.   FPS =  523.0218434294642
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  4.6397959522437304e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           33     5.423e-04   5.880e-04   6.934e-05  6.348e-05  5.963e-05  1.083e-04  5.431e-05
+    In whole val dataset:
+        Mean pixel error = 4.292164
+        Max pixel error = 37.744278  (index = 3642 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043590.png ).
+    Ring correct counts = 10839 / 14952.   = 72.49197431781701 % ring-class accuracy
+         Ring miscounts = 3487 / 14952.   = 23.321294810058856 % ring-miscount rate
+        False positives = 612 / 14952.   = 4.093097913322633 % FP rate
+        False negatives = 626 / 14952.   = 4.186730872124131 % FN rate
+         True positives = 14326 / 14952.   = 95.81326912787587 % TP rate
+         True negatives = 343860
+    Total Mistakes = 4725 / 14952.   => 68.39887640449437 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.9678653e-05
+40000/40000 [==============================] - 414s 10ms/step - loss: 5.4230e-04 - val_loss: 5.8796e-04
+Epoch 35/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.509641170501709 s.   FPS =  524.9409426177783
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  4.6397959522437304e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           34     5.321e-04   5.972e-04   6.983e-05  5.690e-05  7.423e-05  1.072e-04  5.965e-05
+    In whole val dataset:
+        Mean pixel error = 4.6408834
+        Max pixel error = 40.098763  (index = 1935 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040499.png ).
+    Ring correct counts = 10523 / 14952.   = 70.37854467629748 % ring-class accuracy
+         Ring miscounts = 3854 / 14952.   = 25.77581594435527 % ring-miscount rate
+        False positives = 578 / 14952.   = 3.8657035848047085 % FP rate
+        False negatives = 575 / 14952.   = 3.8456393793472445 % FN rate
+         True positives = 14377 / 14952.   = 96.15436062065275 % TP rate
+         True negatives = 343894
+    Total Mistakes = 5007 / 14952.   => 66.51284109149277 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 3.9498635e-05
+40000/40000 [==============================] - 416s 10ms/step - loss: 5.3207e-04 - val_loss: 5.9715e-04
+Epoch 36/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.856912851333618 s.   FPS =  506.44659999449965
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  4.6397959522437304e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           35     5.172e-04   5.828e-04   6.955e-05  7.005e-05  5.995e-05  1.024e-04  5.893e-05
+    In whole val dataset:
+        Mean pixel error = 4.303121
+        Max pixel error = 41.108547  (index = 1159 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043041.png ).
+    Ring correct counts = 10593 / 14952.   = 70.84670947030497 % ring-class accuracy
+         Ring miscounts = 3789 / 14952.   = 25.341091492776886 % ring-miscount rate
+        False positives = 570 / 14952.   = 3.812199036918138 % FP rate
+        False negatives = 570 / 14952.   = 3.812199036918138 % FN rate
+         True positives = 14382 / 14952.   = 96.18780096308186 % TP rate
+         True negatives = 343902
+    Total Mistakes = 4929 / 14952.   => 67.03451043338684 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.9279348e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 5.1720e-04 - val_loss: 5.8281e-04
+Epoch 37/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.433446645736694 s.   FPS =  529.1809226753893
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  4.6397959522437304e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           36     5.014e-04   5.646e-04   6.377e-05  5.895e-05  7.078e-05  1.066e-04  4.789e-05
+    In whole val dataset:
+        Mean pixel error = 7.0635257
+        Max pixel error = 43.73946  (index = 701 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043939.png ).
+    Ring correct counts = 11191 / 14952.   = 74.84617442482612 % ring-class accuracy
+         Ring miscounts = 3183 / 14952.   = 21.28812199036918 % ring-miscount rate
+        False positives = 563 / 14952.   = 3.765382557517389 % FP rate
+        False negatives = 578 / 14952.   = 3.8657035848047085 % FN rate
+         True positives = 14374 / 14952.   = 96.1342964151953 % TP rate
+         True negatives = 343909
+    Total Mistakes = 4324 / 14952.   => 71.08079186730872 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.9021234e-05
+40000/40000 [==============================] - 414s 10ms/step - loss: 5.0140e-04 - val_loss: 5.6464e-04
+Epoch 38/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.53459620475769 s.   FPS =  523.5670072225009
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  4.6397959522437304e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           37     4.903e-04   5.415e-04   6.194e-05  5.202e-05  6.239e-05  1.050e-04  4.830e-05
+    In whole val dataset:
+        Mean pixel error = 5.5095944
+        Max pixel error = 39.482403  (index = 3418 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042297.png ).
+    Ring correct counts = 11214 / 14952.   = 75.0 % ring-class accuracy
+         Ring miscounts = 3187 / 14952.   = 21.314874264312465 % ring-miscount rate
+        False positives = 586 / 14952.   = 3.9192081326912787 % FP rate
+        False negatives = 551 / 14952.   = 3.6851257356875333 % FN rate
+         True positives = 14401 / 14952.   = 96.31487426431246 % TP rate
+         True negatives = 343886
+    Total Mistakes = 4324 / 14952.   => 71.08079186730872 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.8724815e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 4.9034e-04 - val_loss: 5.4146e-04
+Epoch 39/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.66573452949524 s.   FPS =  516.4635946463027
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  4.6397959522437304e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           38     4.749e-04   5.329e-04   6.854e-05  5.312e-05  5.446e-05  9.791e-05  5.162e-05
+    In whole val dataset:
+        Mean pixel error = 4.5177712
+        Max pixel error = 39.44685  (index = 1935 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040499.png ).
+    Ring correct counts = 11080 / 14952.   = 74.10379882289995 % ring-class accuracy
+         Ring miscounts = 3324 / 14952.   = 22.231139646869984 % ring-miscount rate
+        False positives = 505 / 14952.   = 3.377474585339754 % FP rate
+        False negatives = 548 / 14952.   = 3.6650615302300698 % FN rate
+         True positives = 14404 / 14952.   = 96.33493846976992 % TP rate
+         True negatives = 343967
+    Total Mistakes = 4377 / 14952.   => 70.72632423756019 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.8390684e-05
+40000/40000 [==============================] - 417s 10ms/step - loss: 4.7489e-04 - val_loss: 5.3295e-04
+Epoch 40/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.556851148605347 s.   FPS =  522.347781960431
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  4.6397959522437304e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           39     4.639e-04   5.409e-04   6.304e-05  5.740e-05  6.672e-05  1.035e-04  4.726e-05
+    In whole val dataset:
+        Mean pixel error = 5.844322
+        Max pixel error = 42.333652  (index = 3642 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043590.png ).
+    Ring correct counts = 11232 / 14952.   = 75.12038523274478 % ring-class accuracy
+         Ring miscounts = 3136 / 14952.   = 20.973782771535582 % ring-miscount rate
+        False positives = 579 / 14952.   = 3.8723916532905296 % FP rate
+        False negatives = 584 / 14952.   = 3.905831995719636 % FN rate
+         True positives = 14368 / 14952.   = 96.09416800428036 % TP rate
+         True negatives = 343893
+    Total Mistakes = 4299 / 14952.   => 71.24799357945425 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 3.801952e-05
+40000/40000 [==============================] - 418s 10ms/step - loss: 4.6391e-04 - val_loss: 5.4089e-04
+Epoch 41/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.419312238693237 s.   FPS =  529.9749996070362
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  4.182434713584371e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           40     4.548e-04   5.224e-04   6.049e-05  5.126e-05  6.708e-05  1.011e-04  4.182e-05
+    In whole val dataset:
+        Mean pixel error = 5.049133
+        Max pixel error = 37.928696  (index = 1053 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0041811.png ).
+    Ring correct counts = 11668 / 14952.   = 78.03638309256287 % ring-class accuracy
+         Ring miscounts = 2761 / 14952.   = 18.465757089352596 % ring-miscount rate
+        False positives = 550 / 14952.   = 3.6784376672017123 % FP rate
+        False negatives = 523 / 14952.   = 3.497859818084537 % FN rate
+         True positives = 14429 / 14952.   = 96.50214018191546 % TP rate
+         True negatives = 343922
+    Total Mistakes = 3834 / 14952.   => 74.35794542536117 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.7612062e-05
+40000/40000 [==============================] - 417s 10ms/step - loss: 4.5484e-04 - val_loss: 5.2241e-04
+Epoch 42/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.510084629058838 s.   FPS =  524.9164644388692
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  4.182434713584371e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           41     4.411e-04   4.983e-04   5.548e-05  4.566e-05  5.255e-05  1.001e-04  5.464e-05
+    In whole val dataset:
+        Mean pixel error = 6.4729156
+        Max pixel error = 43.852818  (index = 1935 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040499.png ).
+    Ring correct counts = 10784 / 14952.   = 72.12413055109684 % ring-class accuracy
+         Ring miscounts = 3615 / 14952.   = 24.17736757624398 % ring-miscount rate
+        False positives = 535 / 14952.   = 3.5781166399143927 % FP rate
+        False negatives = 553 / 14952.   = 3.698501872659176 % FN rate
+         True positives = 14399 / 14952.   = 96.30149812734082 % TP rate
+         True negatives = 343937
+    Total Mistakes = 4703 / 14952.   => 68.54601391118244 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.716914e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 4.4114e-04 - val_loss: 4.9832e-04
+Epoch 43/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.753346920013428 s.   FPS =  511.82430410187106
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  4.0462258766638115e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           42     4.330e-04   4.920e-04   5.759e-05  5.037e-05  5.712e-05  9.725e-05  4.046e-05
+    In whole val dataset:
+        Mean pixel error = 4.636606
+        Max pixel error = 40.166996  (index = 4417 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040298.png ).
+    Ring correct counts = 11880 / 14952.   = 79.45425361155698 % ring-class accuracy
+         Ring miscounts = 2538 / 14952.   = 16.974317817014445 % ring-miscount rate
+        False positives = 549 / 14952.   = 3.671749598715891 % FP rate
+        False negatives = 534 / 14952.   = 3.5714285714285716 % FN rate
+         True positives = 14418 / 14952.   = 96.42857142857143 % TP rate
+         True negatives = 343923
+    Total Mistakes = 3621 / 14952.   => 75.78250401284109 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.669164e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 4.3299e-04 - val_loss: 4.9196e-04
+Epoch 44/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  10.053885221481323 s.   FPS =  496.52446691294995
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  4.0462258766638115e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           43     4.199e-04   4.700e-04   5.815e-05  4.464e-05  4.993e-05  8.840e-05  4.735e-05
+    In whole val dataset:
+        Mean pixel error = 7.046731
+        Max pixel error = 41.003498  (index = 3418 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042297.png ).
+    Ring correct counts = 11414 / 14952.   = 76.33761369716426 % ring-class accuracy
+         Ring miscounts = 3034 / 14952.   = 20.29159978598181 % ring-miscount rate
+        False positives = 498 / 14952.   = 3.330658105939005 % FP rate
+        False negatives = 504 / 14952.   = 3.3707865168539324 % FN rate
+         True positives = 14448 / 14952.   = 96.62921348314607 % TP rate
+         True negatives = 343974
+    Total Mistakes = 4036 / 14952.   => 73.00695559122525 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.6180525e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 4.1995e-04 - val_loss: 4.6998e-04
+Epoch 45/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.808894157409668 s.   FPS =  508.9258707342691
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  4.0462258766638115e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           44     4.123e-04   4.827e-04   5.854e-05  5.104e-05  5.205e-05  9.810e-05  4.294e-05
+    In whole val dataset:
+        Mean pixel error = 5.8218517
+        Max pixel error = 36.417377  (index = 3642 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043590.png ).
+    Ring correct counts = 11608 / 14952.   = 77.63509898341358 % ring-class accuracy
+         Ring miscounts = 2806 / 14952.   = 18.766720171214555 % ring-miscount rate
+        False positives = 540 / 14952.   = 3.611556982343499 % FP rate
+        False negatives = 538 / 14952.   = 3.5981808453718567 % FN rate
+         True positives = 14414 / 14952.   = 96.40181915462814 % TP rate
+         True negatives = 343932
+    Total Mistakes = 3884 / 14952.   => 74.02354200107008 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 3.5636822e-05
+40000/40000 [==============================] - 417s 10ms/step - loss: 4.1232e-04 - val_loss: 4.8271e-04
+Epoch 46/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.914013147354126 s.   FPS =  503.5296933545298
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  3.645937249530107e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           45     4.054e-04   4.578e-04   5.575e-05  4.352e-05  5.145e-05  9.403e-05  3.646e-05
+    In whole val dataset:
+        Mean pixel error = 6.072427
+        Max pixel error = 40.044304  (index = 1935 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040499.png ).
+    Ring correct counts = 12220 / 14952.   = 81.72819689673622 % ring-class accuracy
+         Ring miscounts = 2207 / 14952.   = 14.760567148207597 % ring-miscount rate
+        False positives = 527 / 14952.   = 3.5246120920278226 % FP rate
+        False negatives = 525 / 14952.   = 3.5112359550561796 % FN rate
+         True positives = 14427 / 14952.   = 96.48876404494382 % TP rate
+         True negatives = 343945
+    Total Mistakes = 3259 / 14952.   => 78.2035848047084 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.5061632e-05
+40000/40000 [==============================] - 416s 10ms/step - loss: 4.0542e-04 - val_loss: 4.5776e-04
+Epoch 47/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.79135537147522 s.   FPS =  509.83748527226396
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  3.645937249530107e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           46     3.933e-04   4.656e-04   6.027e-05  4.750e-05  4.706e-05  1.002e-04  3.946e-05
+    In whole val dataset:
+        Mean pixel error = 4.533914
+        Max pixel error = 39.264194  (index = 1935 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040499.png ).
+    Ring correct counts = 12027 / 14952.   = 80.43739967897271 % ring-class accuracy
+         Ring miscounts = 2356 / 14952.   = 15.75708935259497 % ring-miscount rate
+        False positives = 536 / 14952.   = 3.584804708400214 % FP rate
+        False negatives = 569 / 14952.   = 3.805510968432317 % FN rate
+         True positives = 14383 / 14952.   = 96.19448903156768 % TP rate
+         True negatives = 343936
+    Total Mistakes = 3461 / 14952.   => 76.8525949705725 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.445611e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 3.9328e-04 - val_loss: 4.6561e-04
+Epoch 48/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.561575651168823 s.   FPS =  522.0896829268688
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  3.645937249530107e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           47     3.856e-04   4.918e-04   6.063e-05  5.119e-05  6.476e-05  1.044e-04  4.132e-05
+    In whole val dataset:
+        Mean pixel error = 5.415887
+        Max pixel error = 40.516594  (index = 1935 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040499.png ).
+    Ring correct counts = 11766 / 14952.   = 78.69181380417335 % ring-class accuracy
+         Ring miscounts = 2617 / 14952.   = 17.502675227394327 % ring-miscount rate
+        False positives = 598 / 14952.   = 3.9994649545211343 % FP rate
+        False negatives = 569 / 14952.   = 3.805510968432317 % FN rate
+         True positives = 14383 / 14952.   = 96.19448903156768 % TP rate
+         True negatives = 343874
+    Total Mistakes = 3784 / 14952.   => 74.69234884965222 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.382147e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 3.8564e-04 - val_loss: 4.9185e-04
+Epoch 49/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.730440139770508 s.   FPS =  513.0292081646511
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  3.645937249530107e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           48     3.747e-04   4.645e-04   5.536e-05  4.554e-05  6.581e-05  9.234e-05  3.820e-05
+    In whole val dataset:
+        Mean pixel error = 6.5860105
+        Max pixel error = 37.281204  (index = 4417 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040298.png ).
+    Ring correct counts = 12180 / 14952.   = 81.46067415730337 % ring-class accuracy
+         Ring miscounts = 2266 / 14952.   = 15.155163188871054 % ring-miscount rate
+        False positives = 509 / 14952.   = 3.404226859283039 % FP rate
+        False negatives = 506 / 14952.   = 3.3841626538255754 % FN rate
+         True positives = 14446 / 14952.   = 96.61583734617443 % TP rate
+         True negatives = 343963
+    Total Mistakes = 3281 / 14952.   => 78.05644729802033 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.3158998e-05
+40000/40000 [==============================] - 416s 10ms/step - loss: 3.7470e-04 - val_loss: 4.6451e-04
+Epoch 50/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.714324951171875 s.   FPS =  513.8802773318589
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  3.645937249530107e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           49     3.677e-04   4.323e-04   5.219e-05  4.361e-05  4.483e-05  9.190e-05  3.925e-05
+    In whole val dataset:
+        Mean pixel error = 5.2820897
+        Max pixel error = 41.4232  (index = 1935 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040499.png ).
+    Ring correct counts = 11971 / 14952.   = 80.06286784376672 % ring-class accuracy
+         Ring miscounts = 2499 / 14952.   = 16.713483146067414 % ring-miscount rate
+        False positives = 520 / 14952.   = 3.4777956126270735 % FP rate
+        False negatives = 482 / 14952.   = 3.223649010165864 % FN rate
+         True positives = 14470 / 14952.   = 96.77635098983414 % TP rate
+         True negatives = 343952
+    Total Mistakes = 3501 / 14952.   => 76.58507223113965 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 3.2470027e-05
+40000/40000 [==============================] - 418s 10ms/step - loss: 3.6770e-04 - val_loss: 4.3234e-04
+Epoch 51/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.532524585723877 s.   FPS =  523.6807893971899
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  3.1779305572854355e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           50     3.604e-04   4.389e-04   5.883e-05  4.077e-05  5.490e-05  9.374e-05  3.178e-05
+    In whole val dataset:
+        Mean pixel error = 5.359722
+        Max pixel error = 37.913937  (index = 3642 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043590.png ).
+    Ring correct counts = 12647 / 14952.   = 84.58400214018191 % ring-class accuracy
+         Ring miscounts = 1788 / 14952.   = 11.958266452648475 % ring-miscount rate
+        False positives = 519 / 14952.   = 3.471107544141252 % FP rate
+        False negatives = 517 / 14952.   = 3.4577314071696095 % FN rate
+         True positives = 14435 / 14952.   = 96.5422685928304 % TP rate
+         True negatives = 343953
+    Total Mistakes = 2824 / 14952.   => 81.11289459604066 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.1755942e-05
+40000/40000 [==============================] - 417s 10ms/step - loss: 3.6041e-04 - val_loss: 4.3885e-04
+Epoch 52/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.521814584732056 s.   FPS =  524.2698180664557
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  3.1779305572854355e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           51     3.491e-04   4.189e-04   5.014e-05  4.824e-05  4.539e-05  8.681e-05  3.570e-05
+    In whole val dataset:
+        Mean pixel error = 4.402737
+        Max pixel error = 37.035046  (index = 4484 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040214.png ).
+    Ring correct counts = 12394 / 14952.   = 82.89192081326912 % ring-class accuracy
+         Ring miscounts = 2074 / 14952.   = 13.871054039593366 % ring-miscount rate
+        False positives = 477 / 14952.   = 3.1902086677367576 % FP rate
+        False negatives = 484 / 14952.   = 3.2370251471375067 % FN rate
+         True positives = 14468 / 14952.   = 96.7629748528625 % TP rate
+         True negatives = 343995
+    Total Mistakes = 3035 / 14952.   => 79.70171214553237 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.1018182e-05
+40000/40000 [==============================] - 416s 10ms/step - loss: 3.4913e-04 - val_loss: 4.1887e-04
+Epoch 53/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.644043922424316 s.   FPS =  517.6251829787511
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  3.1779305572854355e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           52     3.411e-04   4.346e-04   4.847e-05  4.243e-05  4.798e-05  8.642e-05  5.840e-05
+    In whole val dataset:
+        Mean pixel error = 6.2229733
+        Max pixel error = 39.55629  (index = 3418 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042297.png ).
+    Ring correct counts = 10531 / 14952.   = 70.43204922418406 % ring-class accuracy
+         Ring miscounts = 3938 / 14952.   = 26.337613697164258 % ring-miscount rate
+        False positives = 484 / 14952.   = 3.2370251471375067 % FP rate
+        False negatives = 483 / 14952.   = 3.230337078651685 % FN rate
+         True positives = 14469 / 14952.   = 96.76966292134831 % TP rate
+         True negatives = 343988
+    Total Mistakes = 4905 / 14952.   => 67.19502407704655 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.0258232e-05
+40000/40000 [==============================] - 418s 10ms/step - loss: 3.4110e-04 - val_loss: 4.3463e-04
+Epoch 54/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.648084878921509 s.   FPS =  517.408383388727
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  3.157087485305965e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           53     3.306e-04   4.052e-04   5.102e-05  4.209e-05  4.714e-05  8.633e-05  3.157e-05
+    In whole val dataset:
+        Mean pixel error = 7.427355
+        Max pixel error = 42.541706  (index = 3642 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043590.png ).
+    Ring correct counts = 12601 / 14952.   = 84.27635098983414 % ring-class accuracy
+         Ring miscounts = 1873 / 14952.   = 12.526752273943286 % ring-miscount rate
+        False positives = 479 / 14952.   = 3.2035848047084 % FP rate
+        False negatives = 478 / 14952.   = 3.196896736222579 % FN rate
+         True positives = 14474 / 14952.   = 96.80310326377742 % TP rate
+         True negatives = 343993
+    Total Mistakes = 2830 / 14952.   => 81.07276618512573 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.9477624e-05
+40000/40000 [==============================] - 417s 10ms/step - loss: 3.3057e-04 - val_loss: 4.0524e-04
+Epoch 55/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.786973714828491 s.   FPS =  510.065740999845
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  3.0106926715234295e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           54     3.260e-04   4.065e-04   4.859e-05  4.258e-05  4.794e-05  9.180e-05  3.011e-05
+    In whole val dataset:
+        Mean pixel error = 5.9484305
+        Max pixel error = 40.83832  (index = 3642 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043590.png ).
+    Ring correct counts = 12777 / 14952.   = 85.45345104333869 % ring-class accuracy
+         Ring miscounts = 1646 / 14952.   = 11.008560727661852 % ring-miscount rate
+        False positives = 540 / 14952.   = 3.611556982343499 % FP rate
+        False negatives = 529 / 14952.   = 3.537988228999465 % FN rate
+         True positives = 14423 / 14952.   = 96.46201177100053 % TP rate
+         True negatives = 343932
+    Total Mistakes = 2715 / 14952.   => 81.84189406099517 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 2.8677929e-05
+40000/40000 [==============================] - 419s 10ms/step - loss: 3.2597e-04 - val_loss: 4.0647e-04
+Epoch 56/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  10.057345151901245 s.   FPS =  496.35365244040673
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  3.0106926715234295e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           55     3.129e-04   3.988e-04   5.022e-05  4.151e-05  4.294e-05  8.958e-05  3.372e-05
+    In whole val dataset:
+        Mean pixel error = 5.34124
+        Max pixel error = 35.277393  (index = 809 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040295.png ).
+    Ring correct counts = 12396 / 14952.   = 82.90529695024077 % ring-class accuracy
+         Ring miscounts = 2050 / 14952.   = 13.710540395933654 % ring-miscount rate
+        False positives = 506 / 14952.   = 3.3841626538255754 % FP rate
+        False negatives = 506 / 14952.   = 3.3841626538255754 % FN rate
+         True positives = 14446 / 14952.   = 96.61583734617443 % TP rate
+         True negatives = 343966
+    Total Mistakes = 3062 / 14952.   => 79.5211342964152 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.7860757e-05
+40000/40000 [==============================] - 417s 10ms/step - loss: 3.1292e-04 - val_loss: 3.9880e-04
+Epoch 57/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.83381462097168 s.   FPS =  507.6361709477436
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  3.0106926715234295e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           56     3.080e-04   4.034e-04   4.864e-05  4.541e-05  4.450e-05  9.491e-05  3.213e-05
+    In whole val dataset:
+        Mean pixel error = 5.3946757
+        Max pixel error = 40.16875  (index = 3418 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042297.png ).
+    Ring correct counts = 12505 / 14952.   = 83.6342964151953 % ring-class accuracy
+         Ring miscounts = 1910 / 14952.   = 12.774210807918672 % ring-miscount rate
+        False positives = 556 / 14952.   = 3.71856607811664 % FP rate
+        False negatives = 537 / 14952.   = 3.591492776886035 % FN rate
+         True positives = 14415 / 14952.   = 96.40850722311396 % TP rate
+         True negatives = 343916
+    Total Mistakes = 3003 / 14952.   => 79.91573033707866 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.7027754e-05
+40000/40000 [==============================] - 417s 10ms/step - loss: 3.0797e-04 - val_loss: 4.0343e-04
+Epoch 58/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.785597324371338 s.   FPS =  510.1374841541116
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  3.0106926715234295e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           57     3.004e-04   3.758e-04   4.559e-05  3.779e-05  4.018e-05  8.345e-05  3.164e-05
+    In whole val dataset:
+        Mean pixel error = 5.3044076
+        Max pixel error = 40.273975  (index = 809 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040295.png ).
+    Ring correct counts = 12625 / 14952.   = 84.43686463349384 % ring-class accuracy
+         Ring miscounts = 1897 / 14952.   = 12.687265917602996 % ring-miscount rate
+        False positives = 466 / 14952.   = 3.1166399143927235 % FP rate
+        False negatives = 430 / 14952.   = 2.8758694489031567 % FN rate
+         True positives = 14522 / 14952.   = 97.12413055109684 % TP rate
+         True negatives = 344006
+    Total Mistakes = 2793 / 14952.   => 81.32022471910112 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.61806e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 3.0040e-04 - val_loss: 3.7584e-04
+Epoch 59/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.805689096450806 s.   FPS =  509.09221686488786
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  3.0106926715234295e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           58     2.918e-04   3.930e-04   4.588e-05  4.304e-05  4.467e-05  8.959e-05  3.820e-05
+    In whole val dataset:
+        Mean pixel error = 5.5486016
+        Max pixel error = 37.948048  (index = 3642 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043590.png ).
+    Ring correct counts = 12043 / 14952.   = 80.54440877474585 % ring-class accuracy
+         Ring miscounts = 2424 / 14952.   = 16.21187800963082 % ring-miscount rate
+        False positives = 495 / 14952.   = 3.310593900481541 % FP rate
+        False negatives = 485 / 14952.   = 3.243713215623328 % FN rate
+         True positives = 14467 / 14952.   = 96.75628678437667 % TP rate
+         True negatives = 343977
+    Total Mistakes = 3404 / 14952.   => 77.23381487426431 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.5320998e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 2.9180e-04 - val_loss: 3.9304e-04
+Epoch 60/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.800283432006836 s.   FPS =  509.37302320222506
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  3.0106926715234295e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           59     2.840e-04   3.856e-04   4.591e-05  3.811e-05  3.811e-05  8.679e-05  4.939e-05
+    In whole val dataset:
+        Mean pixel error = 4.678329
+        Max pixel error = 38.74735  (index = 4417 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040298.png ).
+    Ring correct counts = 11166 / 14952.   = 74.67897271268058 % ring-class accuracy
+         Ring miscounts = 3306 / 14952.   = 22.1107544141252 % ring-miscount rate
+        False positives = 477 / 14952.   = 3.1902086677367576 % FP rate
+        False negatives = 480 / 14952.   = 3.2102728731942216 % FN rate
+         True positives = 14472 / 14952.   = 96.78972712680577 % TP rate
+         True negatives = 343995
+    Total Mistakes = 4263 / 14952.   => 71.48876404494382 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 2.4450681e-05
+40000/40000 [==============================] - 418s 10ms/step - loss: 2.8398e-04 - val_loss: 3.8560e-04
+Epoch 61/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.767510652542114 s.   FPS =  511.08211473521874
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  2.680067700566724e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           60     2.759e-04   3.666e-04   4.788e-05  3.767e-05  3.840e-05  8.948e-05  2.680e-05
+    In whole val dataset:
+        Mean pixel error = 5.3653727
+        Max pixel error = 40.525402  (index = 3642 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043590.png ).
+    Ring correct counts = 13076 / 14952.   = 87.45318352059925 % ring-class accuracy
+         Ring miscounts = 1361 / 14952.   = 9.102461209202783 % ring-miscount rate
+        False positives = 514 / 14952.   = 3.4376672017121455 % FP rate
+        False negatives = 515 / 14952.   = 3.444355270197967 % FN rate
+         True positives = 14437 / 14952.   = 96.55564472980204 % TP rate
+         True negatives = 343958
+    Total Mistakes = 2390 / 14952.   => 84.01551631888711 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.35714e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 2.7595e-04 - val_loss: 3.6664e-04
+Epoch 62/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.754413366317749 s.   FPS =  511.7683465453197
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  2.5596362320357002e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           61     2.669e-04   3.609e-04   4.284e-05  4.090e-05  4.166e-05  8.728e-05  2.560e-05
+    In whole val dataset:
+        Mean pixel error = 6.996078
+        Max pixel error = 41.566784  (index = 1053 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0041811.png ).
+    Ring correct counts = 13191 / 14952.   = 88.2223113964687 % ring-class accuracy
+         Ring miscounts = 1260 / 14952.   = 8.426966292134832 % ring-miscount rate
+        False positives = 502 / 14952.   = 3.35741037988229 % FP rate
+        False negatives = 501 / 14952.   = 3.350722311396469 % FN rate
+         True positives = 14451 / 14952.   = 96.64927768860353 % TP rate
+         True negatives = 343970
+    Total Mistakes = 2263 / 14952.   => 84.86490101658642 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.2684928e-05
+40000/40000 [==============================] - 414s 10ms/step - loss: 2.6693e-04 - val_loss: 3.6085e-04
+Epoch 63/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.738759279251099 s.   FPS =  512.5909632693869
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  2.5596362320357002e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           62     2.608e-04   3.709e-04   4.628e-05  3.781e-05  3.897e-05  9.982e-05  2.864e-05
+    In whole val dataset:
+        Mean pixel error = 5.9443297
+        Max pixel error = 42.282436  (index = 809 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040295.png ).
+    Ring correct counts = 12966 / 14952.   = 86.71749598715891 % ring-class accuracy
+         Ring miscounts = 1452 / 14952.   = 9.71107544141252 % ring-miscount rate
+        False positives = 537 / 14952.   = 3.591492776886035 % FP rate
+        False negatives = 534 / 14952.   = 3.5714285714285716 % FN rate
+         True positives = 14418 / 14952.   = 96.42857142857143 % TP rate
+         True negatives = 343935
+    Total Mistakes = 2523 / 14952.   => 83.12600321027287 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.1793048e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 2.6076e-04 - val_loss: 3.7090e-04
+Epoch 64/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.932992219924927 s.   FPS =  502.56759388035937
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  2.5596362320357002e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           63     2.532e-04   3.384e-04   4.175e-05  3.469e-05  3.785e-05  7.843e-05  2.880e-05
+    In whole val dataset:
+        Mean pixel error = 5.0348134
+        Max pixel error = 41.64533  (index = 1053 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0041811.png ).
+    Ring correct counts = 12945 / 14952.   = 86.57704654895666 % ring-class accuracy
+         Ring miscounts = 1570 / 14952.   = 10.500267522739433 % ring-miscount rate
+        False positives = 473 / 14952.   = 3.1634563937934725 % FP rate
+        False negatives = 437 / 14952.   = 2.9226859283039057 % FN rate
+         True positives = 14515 / 14952.   = 97.0773140716961 % TP rate
+         True negatives = 343999
+    Total Mistakes = 2480 / 14952.   => 83.41359015516319 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.0897558e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 2.5323e-04 - val_loss: 3.3842e-04
+Epoch 65/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.772129535675049 s.   FPS =  510.84054727024835
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  2.5596362320357002e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           64     2.445e-04   3.233e-04   3.910e-05  3.337e-05  3.444e-05  7.621e-05  2.626e-05
+    In whole val dataset:
+        Mean pixel error = 5.8534317
+        Max pixel error = 41.705112  (index = 3642 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043590.png ).
+    Ring correct counts = 13096 / 14952.   = 87.58694489031568 % ring-class accuracy
+         Ring miscounts = 1430 / 14952.   = 9.563937934724452 % ring-miscount rate
+        False positives = 441 / 14952.   = 2.949438202247191 % FP rate
+        False negatives = 426 / 14952.   = 2.8491171749598716 % FN rate
+         True positives = 14526 / 14952.   = 97.15088282504013 % TP rate
+         True negatives = 344031
+    Total Mistakes = 2297 / 14952.   => 84.63750668806848 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 2.000026e-05
+40000/40000 [==============================] - 419s 10ms/step - loss: 2.4447e-04 - val_loss: 3.2331e-04
+Epoch 66/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.736060857772827 s.   FPS =  512.7330316567007
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  2.5090934286708944e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           65     2.385e-04   3.196e-04   3.951e-05  3.380e-05  3.615e-05  7.394e-05  2.509e-05
+    In whole val dataset:
+        Mean pixel error = 8.403742
+        Max pixel error = 37.240334  (index = 1935 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040499.png ).
+    Ring correct counts = 13267 / 14952.   = 88.73060460139112 % ring-class accuracy
+         Ring miscounts = 1257 / 14952.   = 8.406902086677368 % ring-miscount rate
+        False positives = 437 / 14952.   = 2.9226859283039057 % FP rate
+        False negatives = 428 / 14952.   = 2.862493311931514 % FN rate
+         True positives = 14524 / 14952.   = 97.13750668806848 % TP rate
+         True negatives = 344035
+    Total Mistakes = 2122 / 14952.   => 85.80791867308722 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.9102961e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 2.3846e-04 - val_loss: 3.1957e-04
+Epoch 67/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  10.025794506072998 s.   FPS =  497.91565117120234
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  2.4168502932297997e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           66     2.316e-04   3.241e-04   3.617e-05  3.260e-05  3.890e-05  8.327e-05  2.417e-05
+    In whole val dataset:
+        Mean pixel error = 5.972459
+        Max pixel error = 39.542114  (index = 3418 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042297.png ).
+    Ring correct counts = 13382 / 14952.   = 89.49973247726057 % ring-class accuracy
+         Ring miscounts = 1088 / 14952.   = 7.2766185125735685 % ring-miscount rate
+        False positives = 489 / 14952.   = 3.270465489566613 % FP rate
+        False negatives = 482 / 14952.   = 3.223649010165864 % FN rate
+         True positives = 14470 / 14952.   = 96.77635098983414 % TP rate
+         True negatives = 343983
+    Total Mistakes = 2059 / 14952.   => 86.22926698769395 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.820747e-05
+40000/40000 [==============================] - 417s 10ms/step - loss: 2.3159e-04 - val_loss: 3.2408e-04
+Epoch 68/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.987865447998047 s.   FPS =  499.8064927877647
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  2.0914996639476158e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           67     2.230e-04   3.200e-04   3.901e-05  3.435e-05  3.338e-05  8.611e-05  2.091e-05
+    In whole val dataset:
+        Mean pixel error = 4.399836
+        Max pixel error = 41.11034  (index = 1935 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040499.png ).
+    Ring correct counts = 13648 / 14952.   = 91.27875869448903 % ring-class accuracy
+         Ring miscounts = 838 / 14952.   = 5.604601391118245 % ring-miscount rate
+        False positives = 491 / 14952.   = 3.2838416265382557 % FP rate
+        False negatives = 466 / 14952.   = 3.1166399143927235 % FN rate
+         True positives = 14486 / 14952.   = 96.88336008560728 % TP rate
+         True negatives = 343981
+    Total Mistakes = 1795 / 14952.   => 87.99491706795078 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.7315588e-05
+40000/40000 [==============================] - 417s 10ms/step - loss: 2.2303e-04 - val_loss: 3.2004e-04
+Epoch 69/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.837202548980713 s.   FPS =  507.461341285206
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  2.0451323507586494e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           68     2.192e-04   3.047e-04   3.519e-05  3.343e-05  3.450e-05  7.783e-05  2.045e-05
+    In whole val dataset:
+        Mean pixel error = 5.2793636
+        Max pixel error = 38.920914  (index = 4417 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040298.png ).
+    Ring correct counts = 13707 / 14952.   = 91.67335473515249 % ring-class accuracy
+         Ring miscounts = 817 / 14952.   = 5.464151952915998 % ring-miscount rate
+        False positives = 448 / 14952.   = 2.9962546816479403 % FP rate
+        False negatives = 428 / 14952.   = 2.862493311931514 % FN rate
+         True positives = 14524 / 14952.   = 97.13750668806848 % TP rate
+         True negatives = 344024
+    Total Mistakes = 1693 / 14952.   => 88.67710005350455 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.6429112e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 2.1917e-04 - val_loss: 3.0472e-04
+Epoch 70/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.78308391571045 s.   FPS =  510.26854548221263
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.9975163013441488e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           69     2.128e-04   2.941e-04   3.331e-05  3.290e-05  3.401e-05  7.246e-05  1.998e-05
+    In whole val dataset:
+        Mean pixel error = 5.024578
+        Max pixel error = 41.379845  (index = 1053 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0041811.png ).
+    Ring correct counts = 13795 / 14952.   = 92.26190476190476 % ring-class accuracy
+         Ring miscounts = 747 / 14952.   = 4.995987158908507 % ring-miscount rate
+        False positives = 416 / 14952.   = 2.7822364901016585 % FP rate
+        False negatives = 410 / 14952.   = 2.742108079186731 % FN rate
+         True positives = 14542 / 14952.   = 97.25789192081326 % TP rate
+         True negatives = 344056
+    Total Mistakes = 1573 / 14952.   => 89.4796682718031 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 1.554983e-05
+40000/40000 [==============================] - 419s 10ms/step - loss: 2.1276e-04 - val_loss: 2.9409e-04
+Epoch 71/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.702046394348145 s.   FPS =  514.5306255088672
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.883693039417267e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           70     2.056e-04   2.993e-04   3.687e-05  3.417e-05  3.187e-05  7.861e-05  1.884e-05
+    In whole val dataset:
+        Mean pixel error = 5.704971
+        Max pixel error = 38.39072  (index = 809 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040295.png ).
+    Ring correct counts = 13846 / 14952.   = 92.60299625468164 % ring-class accuracy
+         Ring miscounts = 646 / 14952.   = 4.320492241840556 % ring-miscount rate
+        False positives = 474 / 14952.   = 3.1701444622792936 % FP rate
+        False negatives = 460 / 14952.   = 3.0765115034777955 % FN rate
+         True positives = 14492 / 14952.   = 96.92348849652221 % TP rate
+         True negatives = 343998
+    Total Mistakes = 1580 / 14952.   => 89.43285179240236 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.4679507e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 2.0558e-04 - val_loss: 2.9927e-04
+Epoch 72/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.916861295700073 s.   FPS =  503.3850783175236
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.883693039417267e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           71     1.994e-04   2.972e-04   3.469e-05  3.220e-05  3.144e-05  8.237e-05  1.956e-05
+    In whole val dataset:
+        Mean pixel error = 4.5266113
+        Max pixel error = 42.487858  (index = 1053 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0041811.png ).
+    Ring correct counts = 13819 / 14952.   = 92.42241840556447 % ring-class accuracy
+         Ring miscounts = 654 / 14952.   = 4.373996789727127 % ring-miscount rate
+        False positives = 498 / 14952.   = 3.330658105939005 % FP rate
+        False negatives = 479 / 14952.   = 3.2035848047084 % FN rate
+         True positives = 14473 / 14952.   = 96.7964151952916 % TP rate
+         True negatives = 343974
+    Total Mistakes = 1631 / 14952.   => 89.09176029962546 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.3819901e-05
+40000/40000 [==============================] - 416s 10ms/step - loss: 1.9939e-04 - val_loss: 2.9722e-04
+Epoch 73/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.76274847984314 s.   FPS =  511.3314155646677
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.883693039417267e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           72     1.928e-04   2.802e-04   3.367e-05  2.936e-05  2.976e-05  7.433e-05  1.900e-05
+    In whole val dataset:
+        Mean pixel error = 3.949124
+        Max pixel error = 39.762653  (index = 1159 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043041.png ).
+    Ring correct counts = 13857 / 14952.   = 92.67656500802568 % ring-class accuracy
+         Ring miscounts = 665 / 14952.   = 4.447565543071161 % ring-miscount rate
+        False positives = 437 / 14952.   = 2.9226859283039057 % FP rate
+        False negatives = 430 / 14952.   = 2.8758694489031567 % FN rate
+         True positives = 14522 / 14952.   = 97.12413055109684 % TP rate
+         True negatives = 344035
+    Total Mistakes = 1532 / 14952.   => 89.75387907972177 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.2972741e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 1.9284e-04 - val_loss: 2.8023e-04
+Epoch 74/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  10.09853982925415 s.   FPS =  494.328891543194
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.883693039417267e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           73     1.865e-04   2.833e-04   3.385e-05  3.151e-05  3.033e-05  7.475e-05  2.056e-05
+    In whole val dataset:
+        Mean pixel error = 4.446096
+        Max pixel error = 32.732113  (index = 3361 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0044928.png ).
+    Ring correct counts = 13756 / 14952.   = 92.00107009095773 % ring-class accuracy
+         Ring miscounts = 748 / 14952.   = 5.002675227394328 % ring-miscount rate
+        False positives = 445 / 14952.   = 2.9761904761904763 % FP rate
+        False negatives = 448 / 14952.   = 2.9962546816479403 % FN rate
+         True positives = 14504 / 14952.   = 97.00374531835206 % TP rate
+         True negatives = 344027
+    Total Mistakes = 1641 / 14952.   => 89.02487961476726 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.2139733e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 1.8654e-04 - val_loss: 2.8333e-04
+Epoch 75/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.760891437530518 s.   FPS =  511.42869808036346
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.7162508811452426e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           74     1.813e-04   2.729e-04   3.178e-05  2.993e-05  2.983e-05  7.408e-05  1.716e-05
+    In whole val dataset:
+        Mean pixel error = 4.913402
+        Max pixel error = 41.899464  (index = 3418 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042297.png ).
+    Ring correct counts = 13949 / 14952.   = 93.29186730872124 % ring-class accuracy
+         Ring miscounts = 582 / 14952.   = 3.8924558587479936 % ring-miscount rate
+        False positives = 428 / 14952.   = 2.862493311931514 % FP rate
+        False negatives = 421 / 14952.   = 2.815676832530765 % FN rate
+         True positives = 14531 / 14952.   = 97.18432316746923 % TP rate
+         True negatives = 344044
+    Total Mistakes = 1431 / 14952.   => 90.42937399678974 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 1.1322555e-05
+40000/40000 [==============================] - 417s 10ms/step - loss: 1.8133e-04 - val_loss: 2.7290e-04
+Epoch 76/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.968958139419556 s.   FPS =  500.7544349354305
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.5438208720297553e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           75     1.751e-04   2.651e-04   3.031e-05  2.928e-05  3.140e-05  7.114e-05  1.544e-05
+    In whole val dataset:
+        Mean pixel error = 5.830486
+        Max pixel error = 36.794323  (index = 4417 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040298.png ).
+    Ring correct counts = 14137 / 14952.   = 94.54922418405565 % ring-class accuracy
+         Ring miscounts = 396 / 14952.   = 2.648475120385233 % ring-miscount rate
+        False positives = 432 / 14952.   = 2.889245585874799 % FP rate
+        False negatives = 419 / 14952.   = 2.8023006955591225 % FN rate
+         True positives = 14533 / 14952.   = 97.19769930444087 % TP rate
+         True negatives = 344040
+    Total Mistakes = 1247 / 14952.   => 91.65997859818084 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.0522853e-05
+40000/40000 [==============================] - 415s 10ms/step - loss: 1.7513e-04 - val_loss: 2.6512e-04
+Epoch 77/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.758239507675171 s.   FPS =  511.5676855516439
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.5438208720297553e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           76     1.697e-04   2.570e-04   2.895e-05  2.763e-05  2.816e-05  7.011e-05  1.612e-05
+    In whole val dataset:
+        Mean pixel error = 4.2596817
+        Max pixel error = 35.216  (index = 809 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040295.png ).
+    Ring correct counts = 14096 / 14952.   = 94.27501337613697 % ring-class accuracy
+         Ring miscounts = 450 / 14952.   = 3.009630818619583 % ring-miscount rate
+        False positives = 433 / 14952.   = 2.8959336543606207 % FP rate
+        False negatives = 406 / 14952.   = 2.715355805243446 % FN rate
+         True positives = 14546 / 14952.   = 97.28464419475655 % TP rate
+         True negatives = 344039
+    Total Mistakes = 1289 / 14952.   => 91.37907972177635 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 9.742237e-06
+40000/40000 [==============================] - 415s 10ms/step - loss: 1.6974e-04 - val_loss: 2.5696e-04
+Epoch 78/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.908251285552979 s.   FPS =  503.8225067301971
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.4445361557591241e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           77     1.656e-04   2.509e-04   2.844e-05  2.602e-05  2.678e-05  7.118e-05  1.445e-05
+    In whole val dataset:
+        Mean pixel error = 5.4324026
+        Max pixel error = 38.623997  (index = 3418 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042297.png ).
+    Ring correct counts = 14171 / 14952.   = 94.77661851257356 % ring-class accuracy
+         Ring miscounts = 362 / 14952.   = 2.4210807918673085 % ring-miscount rate
+        False positives = 430 / 14952.   = 2.8758694489031567 % FP rate
+        False negatives = 419 / 14952.   = 2.8023006955591225 % FN rate
+         True positives = 14533 / 14952.   = 97.19769930444087 % TP rate
+         True negatives = 344042
+    Total Mistakes = 1211 / 14952.   => 91.90074906367042 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 8.982279e-06
+40000/40000 [==============================] - 416s 10ms/step - loss: 1.6562e-04 - val_loss: 2.5087e-04
+Epoch 79/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  10.05030083656311 s.   FPS =  496.70154965302595
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.4445361557591241e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           78     1.624e-04   2.564e-04   2.866e-05  2.650e-05  3.086e-05  7.128e-05  1.642e-05
+    In whole val dataset:
+        Mean pixel error = 5.1601877
+        Max pixel error = 39.800556  (index = 1053 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0041811.png ).
+    Ring correct counts = 14099 / 14952.   = 94.29507758159444 % ring-class accuracy
+         Ring miscounts = 443 / 14952.   = 2.9628143392188337 % ring-miscount rate
+        False positives = 429 / 14952.   = 2.8691813804173356 % FP rate
+        False negatives = 410 / 14952.   = 2.742108079186731 % FN rate
+         True positives = 14542 / 14952.   = 97.25789192081326 % TP rate
+         True negatives = 344043
+    Total Mistakes = 1282 / 14952.   => 91.42589620117711 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 8.244509e-06
+40000/40000 [==============================] - 415s 10ms/step - loss: 1.6244e-04 - val_loss: 2.5639e-04
+Epoch 80/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.747357368469238 s.   FPS =  512.1388096581055
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.4445361557591241e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           79     1.561e-04   2.522e-04   2.733e-05  2.738e-05  2.988e-05  7.195e-05  1.483e-05
+    In whole val dataset:
+        Mean pixel error = 4.6865096
+        Max pixel error = 39.097477  (index = 3418 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042297.png ).
+    Ring correct counts = 14151 / 14952.   = 94.64285714285714 % ring-class accuracy
+         Ring miscounts = 368 / 14952.   = 2.4612092027822365 % ring-miscount rate
+        False positives = 444 / 14952.   = 2.969502407704655 % FP rate
+        False negatives = 433 / 14952.   = 2.8959336543606207 % FN rate
+         True positives = 14519 / 14952.   = 97.10406634563938 % TP rate
+         True negatives = 344028
+    Total Mistakes = 1245 / 14952.   => 91.67335473515249 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 7.530414e-06
+40000/40000 [==============================] - 417s 10ms/step - loss: 1.5609e-04 - val_loss: 2.5223e-04
+Epoch 81/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.952104330062866 s.   FPS =  501.60245857957824
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.2534312190837227e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           80     1.527e-04   2.442e-04   2.679e-05  2.717e-05  2.757e-05  7.081e-05  1.253e-05
+    In whole val dataset:
+        Mean pixel error = 4.895099
+        Max pixel error = 39.787426  (index = 3418 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042297.png ).
+    Ring correct counts = 14280 / 14952.   = 95.50561797752809 % ring-class accuracy
+         Ring miscounts = 266 / 14952.   = 1.7790262172284643 % ring-miscount rate
+        False positives = 428 / 14952.   = 2.862493311931514 % FP rate
+        False negatives = 406 / 14952.   = 2.715355805243446 % FN rate
+         True positives = 14546 / 14952.   = 97.28464419475655 % TP rate
+         True negatives = 344044
+    Total Mistakes = 1100 / 14952.   => 92.64312466559657 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 6.8414315e-06
+40000/40000 [==============================] - 417s 10ms/step - loss: 1.5270e-04 - val_loss: 2.4420e-04
+Epoch 82/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.957363367080688 s.   FPS =  501.33753444246963
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.2534312190837227e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           81     1.488e-04   2.402e-04   2.528e-05  2.548e-05  2.712e-05  6.685e-05  1.715e-05
+    In whole val dataset:
+        Mean pixel error = 4.5901504
+        Max pixel error = 37.3469  (index = 3418 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042297.png ).
+    Ring correct counts = 13987 / 14952.   = 93.54601391118246 % ring-class accuracy
+         Ring miscounts = 566 / 14952.   = 3.785446762974853 % ring-miscount rate
+        False positives = 415 / 14952.   = 2.7755484216158375 % FP rate
+        False negatives = 399 / 14952.   = 2.668539325842697 % FN rate
+         True positives = 14553 / 14952.   = 97.3314606741573 % TP rate
+         True negatives = 344057
+    Total Mistakes = 1380 / 14952.   => 90.7704654895666 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 6.178949e-06
+40000/40000 [==============================] - 416s 10ms/step - loss: 1.4880e-04 - val_loss: 2.4017e-04
+Epoch 83/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.695397138595581 s.   FPS =  514.8834986993749
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.1387543963792268e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           82     1.459e-04   2.325e-04   2.545e-05  2.493e-05  2.711e-05  6.699e-05  1.139e-05
+    In whole val dataset:
+        Mean pixel error = 4.396239
+        Max pixel error = 40.804802  (index = 1053 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0041811.png ).
+    Ring correct counts = 14336 / 14952.   = 95.88014981273409 % ring-class accuracy
+         Ring miscounts = 220 / 14952.   = 1.4713750668806849 % ring-miscount rate
+        False positives = 408 / 14952.   = 2.7287319422150884 % FP rate
+        False negatives = 396 / 14952.   = 2.648475120385233 % FN rate
+         True positives = 14556 / 14952.   = 97.35152487961477 % TP rate
+         True negatives = 344064
+    Total Mistakes = 1024 / 14952.   => 93.151417870519 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 5.5443006e-06
+40000/40000 [==============================] - 416s 10ms/step - loss: 1.4593e-04 - val_loss: 2.3250e-04
+Epoch 84/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.83670973777771 s.   FPS =  507.4867646880249
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.1387543963792268e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           83     1.417e-04   2.361e-04   2.523e-05  2.572e-05  2.937e-05  6.838e-05  1.191e-05
+    In whole val dataset:
+        Mean pixel error = 5.1789794
+        Max pixel error = 38.03493  (index = 809 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040295.png ).
+    Ring correct counts = 14328 / 14952.   = 95.82664526484751 % ring-class accuracy
+         Ring miscounts = 214 / 14952.   = 1.431246655965757 % ring-miscount rate
+        False positives = 422 / 14952.   = 2.8223649010165865 % FP rate
+        False negatives = 410 / 14952.   = 2.742108079186731 % FN rate
+         True positives = 14542 / 14952.   = 97.25789192081326 % TP rate
+         True negatives = 344050
+    Total Mistakes = 1046 / 14952.   => 93.00428036383093 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 4.938765e-06
+40000/40000 [==============================] - 416s 10ms/step - loss: 1.4167e-04 - val_loss: 2.3608e-04
+Epoch 85/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.834777116775513 s.   FPS =  507.58649034201056
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.1387543963792268e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           84     1.388e-04   2.340e-04   2.528e-05  2.624e-05  2.582e-05  6.856e-05  1.356e-05
+    In whole val dataset:
+        Mean pixel error = 4.812483
+        Max pixel error = 38.964718  (index = 3642 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043590.png ).
+    Ring correct counts = 14247 / 14952.   = 95.28491171749599 % ring-class accuracy
+         Ring miscounts = 319 / 14952.   = 2.133493846976993 % ring-miscount rate
+        False positives = 408 / 14952.   = 2.7287319422150884 % FP rate
+        False negatives = 386 / 14952.   = 2.5815944355270197 % FN rate
+         True positives = 14566 / 14952.   = 97.41840556447298 % TP rate
+         True negatives = 344064
+    Total Mistakes = 1113 / 14952.   => 92.5561797752809 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 4.363561e-06
+40000/40000 [==============================] - 419s 10ms/step - loss: 1.3881e-04 - val_loss: 2.3402e-04
+Epoch 86/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.918685674667358 s.   FPS =  503.2924889181364
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.0284394193149637e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           85     1.354e-04   2.248e-04   2.395e-05  2.509e-05  2.566e-05  6.654e-05  1.028e-05
+    In whole val dataset:
+        Mean pixel error = 5.46254
+        Max pixel error = 39.23699  (index = 3642 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0043590.png ).
+    Ring correct counts = 14406 / 14952.   = 96.34831460674157 % ring-class accuracy
+         Ring miscounts = 163 / 14952.   = 1.090155163188871 % ring-miscount rate
+        False positives = 404 / 14952.   = 2.701979668271803 % FP rate
+        False negatives = 383 / 14952.   = 2.5615302300695557 % FN rate
+         True positives = 14569 / 14952.   = 97.43846976993045 % TP rate
+         True negatives = 344068
+    Total Mistakes = 950 / 14952.   => 93.64633493846976 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.819847e-06
+40000/40000 [==============================] - 417s 10ms/step - loss: 1.3537e-04 - val_loss: 2.2483e-04
+Epoch 87/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.782118558883667 s.   FPS =  510.3189017747589
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.0284394193149637e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           86     1.332e-04   2.242e-04   2.336e-05  2.453e-05  2.498e-05  6.668e-05  1.205e-05
+    In whole val dataset:
+        Mean pixel error = 5.669279
+        Max pixel error = 38.817543  (index = 3418 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042297.png ).
+    Ring correct counts = 14305 / 14952.   = 95.67281968967362 % ring-class accuracy
+         Ring miscounts = 233 / 14952.   = 1.5583199571963617 % ring-miscount rate
+        False positives = 412 / 14952.   = 2.7554842161583735 % FP rate
+        False negatives = 414 / 14952.   = 2.768860353130016 % FN rate
+         True positives = 14538 / 14952.   = 97.23113964686998 % TP rate
+         True negatives = 344060
+    Total Mistakes = 1059 / 14952.   => 92.91733547351525 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.3087185e-06
+40000/40000 [==============================] - 415s 10ms/step - loss: 1.3316e-04 - val_loss: 2.2417e-04
+Epoch 88/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.73835277557373 s.   FPS =  512.6123601232857
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.0284394193149637e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           87     1.299e-04   2.257e-04   2.276e-05  2.500e-05  2.615e-05  6.743e-05  1.286e-05
+    In whole val dataset:
+        Mean pixel error = 5.004271
+        Max pixel error = 39.27727  (index = 1053 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0041811.png ).
+    Ring correct counts = 14291 / 14952.   = 95.57918673087212 % ring-class accuracy
+         Ring miscounts = 277 / 14952.   = 1.8525949705724987 % ring-miscount rate
+        False positives = 395 / 14952.   = 2.6417870518994113 % FP rate
+        False negatives = 384 / 14952.   = 2.568218298555377 % FN rate
+         True positives = 14568 / 14952.   = 97.43178170144462 % TP rate
+         True negatives = 344077
+    Total Mistakes = 1056 / 14952.   => 92.93739967897271 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.8312045e-06
+40000/40000 [==============================] - 415s 10ms/step - loss: 1.2992e-04 - val_loss: 2.2568e-04
+Epoch 89/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.937594652175903 s.   FPS =  502.33483802913696
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  1.0244825716654304e-05
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           88     1.288e-04   2.175e-04   2.273e-05  2.440e-05  2.406e-05  6.544e-05  1.024e-05
+    In whole val dataset:
+        Mean pixel error = 5.0579834
+        Max pixel error = 36.87724  (index = 4417 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040298.png ).
+    Ring correct counts = 14424 / 14952.   = 96.46869983948636 % ring-class accuracy
+         Ring miscounts = 164 / 14952.   = 1.0968432316746923 % ring-miscount rate
+        False positives = 390 / 14952.   = 2.608346709470305 % FP rate
+        False negatives = 364 / 14952.   = 2.4344569288389515 % FN rate
+         True positives = 14588 / 14952.   = 97.56554307116104 % TP rate
+         True negatives = 344082
+    Total Mistakes = 918 / 14952.   => 93.86035313001605 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.3882665e-06
+40000/40000 [==============================] - 415s 10ms/step - loss: 1.2876e-04 - val_loss: 2.1751e-04
+Epoch 90/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.790465354919434 s.   FPS =  509.8838327936741
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  9.988399142457638e-06
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           89     1.238e-04   2.145e-04   2.214e-05  2.363e-05  2.455e-05  6.421e-05  9.988e-06
+    In whole val dataset:
+        Mean pixel error = 5.2055907
+        Max pixel error = 38.689198  (index = 1053 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0041811.png ).
+    Ring correct counts = 14425 / 14952.   = 96.47538790797218 % ring-class accuracy
+         Ring miscounts = 158 / 14952.   = 1.0567148207597645 % ring-miscount rate
+        False positives = 391 / 14952.   = 2.6150347779561263 % FP rate
+        False negatives = 369 / 14952.   = 2.4678972712680576 % FN rate
+         True positives = 14583 / 14952.   = 97.53210272873194 % TP rate
+         True negatives = 344081
+    Total Mistakes = 918 / 14952.   => 93.86035313001605 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 1.980797e-06
+40000/40000 [==============================] - 418s 10ms/step - loss: 1.2384e-04 - val_loss: 2.1452e-04
+Epoch 91/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.787047147750854 s.   FPS =  510.061913939712
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  9.988399142457638e-06
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           90     1.239e-04   2.133e-04   2.188e-05  2.365e-05  2.412e-05  6.339e-05  1.084e-05
+    In whole val dataset:
+        Mean pixel error = 4.987196
+        Max pixel error = 36.76119  (index = 809 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040295.png ).
+    Ring correct counts = 14401 / 14952.   = 96.31487426431246 % ring-class accuracy
+         Ring miscounts = 189 / 14952.   = 1.2640449438202248 % ring-miscount rate
+        False positives = 379 / 14952.   = 2.5347779561262707 % FP rate
+        False negatives = 362 / 14952.   = 2.4210807918673085 % FN rate
+         True positives = 14590 / 14952.   = 97.57891920813269 % TP rate
+         True negatives = 344093
+    Total Mistakes = 930 / 14952.   => 93.7800963081862 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.6096162e-06
+40000/40000 [==============================] - 414s 10ms/step - loss: 1.2390e-04 - val_loss: 2.1333e-04
+Epoch 92/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.959075927734375 s.   FPS =  501.2513245428833
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  9.988399142457638e-06
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           91     1.224e-04   2.122e-04   2.176e-05  2.317e-05  2.448e-05  6.321e-05  1.066e-05
+    In whole val dataset:
+        Mean pixel error = 5.0236588
+        Max pixel error = 36.822792  (index = 4417 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040298.png ).
+    Ring correct counts = 14406 / 14952.   = 96.34831460674157 % ring-class accuracy
+         Ring miscounts = 183 / 14952.   = 1.223916532905297 % ring-miscount rate
+        False positives = 380 / 14952.   = 2.541466024612092 % FP rate
+        False negatives = 363 / 14952.   = 2.42776886035313 % FN rate
+         True positives = 14589 / 14952.   = 97.57223113964687 % TP rate
+         True negatives = 344092
+    Total Mistakes = 926 / 14952.   => 93.80684858212948 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.275472e-06
+40000/40000 [==============================] - 415s 10ms/step - loss: 1.2239e-04 - val_loss: 2.1216e-04
+Epoch 93/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.959179878234863 s.   FPS =  501.24609265364205
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  9.988399142457638e-06
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           92     1.218e-04   2.086e-04   2.126e-05  2.259e-05  2.358e-05  6.246e-05  1.010e-05
+    In whole val dataset:
+        Mean pixel error = 5.297439
+        Max pixel error = 36.871338  (index = 4417 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040298.png ).
+    Ring correct counts = 14427 / 14952.   = 96.48876404494382 % ring-class accuracy
+         Ring miscounts = 171 / 14952.   = 1.1436597110754414 % ring-miscount rate
+        False positives = 388 / 14952.   = 2.5949705724986623 % FP rate
+        False negatives = 354 / 14952.   = 2.3675762439807384 % FN rate
+         True positives = 14598 / 14952.   = 97.63242375601926 % TP rate
+         True negatives = 344084
+    Total Mistakes = 913 / 14952.   => 93.89379347244515 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 9.790368e-07
+40000/40000 [==============================] - 416s 10ms/step - loss: 1.2183e-04 - val_loss: 2.0858e-04
+Epoch 94/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.739349603652954 s.   FPS =  512.5598939509927
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  9.792285709409043e-06
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           93     1.196e-04   2.086e-04   2.127e-05  2.317e-05  2.367e-05  6.254e-05  9.792e-06
+    In whole val dataset:
+        Mean pixel error = 5.198087
+        Max pixel error = 37.35248  (index = 3418 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042297.png ).
+    Ring correct counts = 14426 / 14952.   = 96.48207597645799 % ring-class accuracy
+         Ring miscounts = 175 / 14952.   = 1.1704119850187267 % ring-miscount rate
+        False positives = 369 / 14952.   = 2.4678972712680576 % FP rate
+        False negatives = 351 / 14952.   = 2.3475120385232744 % FN rate
+         True positives = 14601 / 14952.   = 97.65248796147672 % TP rate
+         True negatives = 344103
+    Total Mistakes = 895 / 14952.   => 94.01417870518995 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 7.209081e-07
+40000/40000 [==============================] - 416s 10ms/step - loss: 1.1961e-04 - val_loss: 2.0862e-04
+Epoch 95/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.722633600234985 s.   FPS =  513.4411318224878
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  9.71453027887037e-06
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           94     1.184e-04   2.067e-04   2.100e-05  2.282e-05  2.339e-05  6.191e-05  9.715e-06
+    In whole val dataset:
+        Mean pixel error = 5.047792
+        Max pixel error = 37.023594  (index = 3418 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042297.png ).
+    Ring correct counts = 14437 / 14952.   = 96.55564472980204 % ring-class accuracy
+         Ring miscounts = 157 / 14952.   = 1.0500267522739433 % ring-miscount rate
+        False positives = 373 / 14952.   = 2.494649545211343 % FP rate
+        False negatives = 358 / 14952.   = 2.3943285179240235 % FN rate
+         True positives = 14594 / 14952.   = 97.60567148207598 % TP rate
+         True negatives = 344099
+    Total Mistakes = 888 / 14952.   => 94.0609951845907 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 5.016055e-07
+40000/40000 [==============================] - 419s 10ms/step - loss: 1.1839e-04 - val_loss: 2.0669e-04
+Epoch 96/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.97153615951538 s.   FPS =  500.6249709315212
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  9.702026545710396e-06
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           95     1.168e-04   2.056e-04   2.099e-05  2.285e-05  2.333e-05  6.116e-05  9.702e-06
+    In whole val dataset:
+        Mean pixel error = 4.9891696
+        Max pixel error = 35.887634  (index = 809 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040295.png ).
+    Ring correct counts = 14432 / 14952.   = 96.52220438737292 % ring-class accuracy
+         Ring miscounts = 167 / 14952.   = 1.1169074371321561 % ring-miscount rate
+        False positives = 375 / 14952.   = 2.5080256821829856 % FP rate
+        False negatives = 353 / 14952.   = 2.360888175494917 % FN rate
+         True positives = 14599 / 14952.   = 97.63911182450508 % TP rate
+         True negatives = 344097
+    Total Mistakes = 895 / 14952.   => 94.01417870518995 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 3.215706e-07
+40000/40000 [==============================] - 416s 10ms/step - loss: 1.1684e-04 - val_loss: 2.0563e-04
+Epoch 97/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.902144193649292 s.   FPS =  504.13323643596334
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  9.702026545710396e-06
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           96     1.179e-04   2.066e-04   2.084e-05  2.302e-05  2.326e-05  6.190e-05  1.015e-05
+    In whole val dataset:
+        Mean pixel error = 5.209487
+        Max pixel error = 35.849056  (index = 809 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040295.png ).
+    Ring correct counts = 14423 / 14952.   = 96.46201177100053 % ring-class accuracy
+         Ring miscounts = 172 / 14952.   = 1.1503477795612627 % ring-miscount rate
+        False positives = 382 / 14952.   = 2.5548421615837347 % FP rate
+        False negatives = 357 / 14952.   = 2.3876404494382024 % FN rate
+         True positives = 14595 / 14952.   = 97.61235955056179 % TP rate
+         True negatives = 344090
+    Total Mistakes = 911 / 14952.   => 93.9071696094168 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 1.811661e-07
+40000/40000 [==============================] - 417s 10ms/step - loss: 1.1794e-04 - val_loss: 2.0663e-04
+Epoch 98/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.724474906921387 s.   FPS =  513.3439129393967
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  9.67079267866211e-06
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           97     1.162e-04   2.061e-04   2.078e-05  2.264e-05  2.325e-05  6.232e-05  9.671e-06
+    In whole val dataset:
+        Mean pixel error = 5.1232376
+        Max pixel error = 36.07671  (index = 3418 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042297.png ).
+    Ring correct counts = 14438 / 14952.   = 96.56233279828785 % ring-class accuracy
+         Ring miscounts = 155 / 14952.   = 1.0366506153023007 % ring-miscount rate
+        False positives = 382 / 14952.   = 2.5548421615837347 % FP rate
+        False negatives = 359 / 14952.   = 2.401016586409845 % FN rate
+         True positives = 14593 / 14952.   = 97.59898341359016 % TP rate
+         True negatives = 344090
+    Total Mistakes = 896 / 14952.   => 94.00749063670412 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 8.067472e-08
+40000/40000 [==============================] - 416s 10ms/step - loss: 1.1620e-04 - val_loss: 2.0605e-04
+Epoch 99/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  10.201566457748413 s.   FPS =  489.3366151830945
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  9.660603609518148e-06
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           98     1.160e-04   2.063e-04   2.070e-05  2.289e-05  2.319e-05  6.245e-05  9.661e-06
+    In whole val dataset:
+        Mean pixel error = 5.090082
+        Max pixel error = 35.5444  (index = 809 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0040295.png ).
+    Ring correct counts = 14432 / 14952.   = 96.52220438737292 % ring-class accuracy
+         Ring miscounts = 157 / 14952.   = 1.0500267522739433 % ring-miscount rate
+        False positives = 384 / 14952.   = 2.568218298555377 % FP rate
+        False negatives = 363 / 14952.   = 2.42776886035313 % FN rate
+         True positives = 14589 / 14952.   = 97.57223113964687 % TP rate
+         True negatives = 344088
+    Total Mistakes = 904 / 14952.   => 93.95398608881756 % class. accuracy rate (lack of mistakes)
+
+Learning rate = 2.0298819e-08
+40000/40000 [==============================] - 417s 10ms/step - loss: 1.1599e-04 - val_loss: 2.0625e-04
+Epoch 100/100
+ MyProgressCallback: predicting, testing & saving plot
+    Predicting... (m = 4992 frames in val set)
+    ...elapsed time to predict =  9.785731792449951 s.   FPS =  510.1304742330574
+    Making list of real centroids...
+    Making list of real centroids...
+ymin =  9.55722680373583e-06
+    Losses: Epoch Train:total Val:total   center     size       angle      noobj      rings
+           99     1.154e-04   2.054e-04   2.071e-05  2.262e-05  2.317e-05  6.197e-05  9.557e-06
+    In whole val dataset:
+        Mean pixel error = 5.0772386
+        Max pixel error = 35.706463  (index = 3418 , file= /home/shawley/datasets/spnet_A_fake_50000/Val/steelpan_0042297.png ).
+    Ring correct counts = 14436 / 14952.   = 96.54895666131621 % ring-class accuracy
+         Ring miscounts = 157 / 14952.   = 1.0500267522739433 % ring-miscount rate
+        False positives = 379 / 14952.   = 2.5347779561262707 % FP rate
+        False negatives = 359 / 14952.   = 2.401016586409845 % FN rate
+         True positives = 14593 / 14952.   = 97.59898341359016 % TP rate
+         True negatives = 344093
+    Total Mistakes = 895 / 14952.   => 94.01417870518995 % class. accuracy rate (lack of mistakes)
+Saving weights checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/weights.hdf5
+Saving entire model checkpoint to ./logs/DatasetA_MSEloss_100ep_Tue_Jan_26_10:06:43_2021/spnet.model
+
+Learning rate = 1.6e-10
+40000/40000 [==============================] - 418s 10ms/step - loss: 1.1543e-04 - val_loss: 2.0538e-04
+
+----------------------------
+Starting model evaluation...
+Getting data..., fraction =  1.0
+Loading data from /home/shawley/datasets/spnet_A_fake_50000/Test/ , fraction = 1.0
+      Check: len(img_file_list) = 5000, and len(meta_file_list) = 5000
+      Total files =  5000 , going to load total_load =  4992
+      Reading metadata file i = 0 / 4992 : /home/shawley/datasets/spnet_A_fake_50000/Test/steelpan_0045000.csv
+          Using annotations from metadata to setup 'true answers' Y and grid of predictors...
+      Reading images and assigning as input X...
+          First image file =  /home/shawley/datasets/spnet_A_fake_50000/Test/steelpan_0045000.png
+          Resizing images to 331x331
+          img_dims =  (331, 331, 1)
+          Allocating shared storage for multiprocessing (this may take a while)
+          Parallelizing image reads across 12 processes.  (Numbers may appear out of order.)
+      Reading image file i = 0 / 4992 : /home/shawley/datasets/spnet_A_fake_50000/Test/steelpan_0045000.png
+      Reading image file i = 2000 / 4992 : /home/shawley/datasets/spnet_A_fake_50000/Test/steelpan_0047000.png
+      Reading image file i = 4000 / 4992 : /home/shawley/datasets/spnet_A_fake_50000/Test/steelpan_0049000.png
+    Predicting... (m = 4992 frames in this (Test?) dataset)
+    ...elapsed time to predict =  11.013537883758545 s.   FPS =  453.2603467375917
+
+calc_map: Calculating mean average precision. Yp.shape[0] = 4992
+precision: thresh =  0.5 ,tp_count, fp_count, fn_count =  14553 0 396
+precision: thresh, prec =  0.5 0.9735099337748344
+precision: thresh =  0.55 ,tp_count, fp_count, fn_count =  14541 0 396
+precision: thresh, prec =  0.55 0.9734886523398273
+precision: thresh =  0.6 ,tp_count, fp_count, fn_count =  14523 0 396
+precision: thresh, prec =  0.6 0.9734566659963805
+precision: thresh =  0.65 ,tp_count, fp_count, fn_count =  14488 0 396
+precision: thresh, prec =  0.65 0.9733942488578339
+precision: thresh =  0.7 ,tp_count, fp_count, fn_count =  14436 0 396
+precision: thresh, prec =  0.7 0.9733009708737864
+precision: thresh =  0.75 ,tp_count, fp_count, fn_count =  14315 0 396
+precision: thresh, prec =  0.75 0.973081367684046
+precision: thresh =  0.8 ,tp_count, fp_count, fn_count =  14056 0 396
+precision: thresh, prec =  0.8 0.9725989482424577
+precision: thresh =  0.85 ,tp_count, fp_count, fn_count =  13363 0 396
+precision: thresh, prec =  0.85 0.9712188385783851
+precision: thresh =  0.9 ,tp_count, fp_count, fn_count =  11386 0 396
+precision: thresh, prec =  0.9 0.9663894075708708
+precision: thresh =  0.95 ,tp_count, fp_count, fn_count =  5911 0 396
+precision: thresh, prec =  0.95 0.9372126208974155
+mAP =  0.9687651654815838
+    Drawing sample ellipse images...
+Mean pixel error = 5.0598817
+    Ring correct counts = 14432 / 14965.   = 0.9154694286668894 % ring-class accuracy
+         Ring miscounts = 137 / 14965.   = 0.9154694286668894 % ring-miscount rate
+        False positives = 413 / 14965.   = 2.759772803207484 % FP rate
+        False negatives = 396 / 14965.   = 2.646174406949549 % FN rate
+         True positives = 14569 / 14965.   = 97.35382559305044 % TP rate
+         True negatives = 344046
+    Total Mistakes = 946 / 14965.   => 93.67858336117608 % class. accuracy rate (lack of mistakes)
+
+----------------------------
+Starting Zooniverse predictions...
+Getting data from /home/shawley/datasets/zooniverse_steelpan/, fraction = 1.0.
+      Total files =  14000 , going to load total_load =  14000
+      Reading images and assigning as input X...
+          First image file =  /home/shawley/datasets/zooniverse_steelpan/06240907_proc_00000.png
+          Resizing images to 331x331
+          img_dims =  (331, 331, 1)
+          Allocating shared storage for multiprocessing (this may take a while)
+          Parallelizing image reads across 12 processes.  (Numbers may appear out of order.)
+      Reading image file i = 0 / 14000 : /home/shawley/datasets/zooniverse_steelpan/06240907_proc_00000.png
+      Reading image file i = 2000 / 14000 : /home/shawley/datasets/zooniverse_steelpan/06240909_proc_00000.png
+      Reading image file i = 6000 / 14000 : /home/shawley/datasets/zooniverse_steelpan/06240912_proc_00000.png
+      Reading image file i = 4000 / 14000 : /home/shawley/datasets/zooniverse_steelpan/06240910_proc_00000.png
+      Reading image file i = 10000 / 14000 : /home/shawley/datasets/zooniverse_steelpan/06240914_proc_00000.png
+      Reading image file i = 8000 / 14000 : /home/shawley/datasets/zooniverse_steelpan/06240913_proc_00000.png
+      Reading image file i = 12000 / 14000 : /home/shawley/datasets/zooniverse_steelpan/06241902_proc_00000.png
+
+    Predicting... (m = 14000 frames in dataset)
+    ...elapsed time to predict =  31.558544397354126 s.   FPS =  443.61995356077836
+    Drawing ellipse images...
+Just to be sure: Saving model to final_weights.hdf5
+And saving full model too
+SPNet execution completed.
