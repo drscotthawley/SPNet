@@ -1,5 +1,7 @@
 # SPNet Segmentation
 
+Project moved to [espiownage](https://github.com/drscotthawley/espiownage)
+
 ## Strategy:
 
 - [x] Run / follow [original fastai segmentation tutorial](https://docs.fast.ai/tutorial.vision.html) 
