@@ -7,7 +7,7 @@ pandas==0.23.0
 tensorflow-gpu==1.14.0
 matplotlib==2.1.1
 # Pick an opencv: for pip, it's called opencv_python, but for conda it's called opencv
-opencv_python==3.4.0.12
+opencv_python==4.2.0.32
 #opencv==3.4.1
 # note that conda will tell you matplotlib version & pillow conflict, but they really don't
 Pillow==8.2.0
