@@ -10,4 +10,4 @@ matplotlib==2.1.1
 opencv_python==3.4.0.12
 #opencv==3.4.1
 # note that conda will tell you matplotlib version & pillow conflict, but they really don't
-Pillow==8.2.0
+Pillow==9.0.1
